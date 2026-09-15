@@ -8,9 +8,9 @@
 
 - 当前代码仓库：本目录；
 - Git 初始提交：`67db616`；
-- 原项目完整 Git 历史：相邻目录 `GSNO_RETIREMENT_BACKUP_20260915/GSFusion_git_current_branch_20260915.bundle`；
-- 完整项目归档：相邻目录 `GSNO_RETIREMENT_BACKUP_20260915/GSNO_PROJECT_FULL_20260915.tar`；
-- 数据集归档：相邻目录 `GSNO_RETIREMENT_BACKUP_20260915/GSNO_DATASETS_20260915.tar`。
+- 原项目完整 Git 历史：相邻目录 `GSFusion_Archive_20260915/GSFusion_git_current_branch_20260915.bundle`；
+- 完整项目归档：相邻目录 `GSFusion_Archive_20260915/GSNO_PROJECT_FULL_20260915.tar`；
+- 数据集归档：相邻目录 `GSFusion_Archive_20260915/GSNO_DATASETS_20260915.tar`。
 
 ## 说明
 
