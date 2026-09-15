@@ -1,0 +1,3 @@
+No public license has been selected yet.
+
+This file is an explicit publication gate. Do not redistribute this staging tree until the authors choose a license and verify all third-party components.

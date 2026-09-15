@@ -1,0 +1,5 @@
+# ninja log v5
+0	1557	1784914470256526311	/mnt/16t-2/sqy/code/GSFusion_raster_adaptive_opt/submodules/diff-srgaussian-rasterization/build/temp.linux-x86_64-cpython-310/cuda_rasterizer/backward.o	b09056494811288c
+0	1657	1784914470360527994	/mnt/16t-2/sqy/code/GSFusion_raster_adaptive_opt/submodules/diff-srgaussian-rasterization/build/temp.linux-x86_64-cpython-310/cuda_rasterizer/forward.o	4ffefd7394ab0053
+1	29174	1784914497860973133	/mnt/16t-2/sqy/code/GSFusion_raster_adaptive_opt/submodules/diff-srgaussian-rasterization/build/temp.linux-x86_64-cpython-310/ext.o	951f07714618ec2d
+1	64893	1784914533561551002	/mnt/16t-2/sqy/code/GSFusion_raster_adaptive_opt/submodules/diff-srgaussian-rasterization/build/temp.linux-x86_64-cpython-310/rasterize_pixels.o	dded16fd63546b0d

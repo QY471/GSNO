@@ -1,0 +1,5 @@
+# ninja log v5
+0	1266	1786181714004245391	/mnt/16t-2/sqy/code/GSFusion_runnable_main/extensions/cell_aware3_rasterizer/build/temp.linux-x86_64-cpython-310/cuda_rasterizer/backward.o	6f7f75251a5a1eac
+1	1267	1786181714004245391	/mnt/16t-2/sqy/code/GSFusion_runnable_main/extensions/cell_aware3_rasterizer/build/temp.linux-x86_64-cpython-310/cuda_rasterizer/forward.o	258ad11aee2a2ab7
+1	20570	1786181733296428312	/mnt/16t-2/sqy/code/GSFusion_runnable_main/extensions/cell_aware3_rasterizer/build/temp.linux-x86_64-cpython-310/ext.o	8df6b4f860b00531
+1	44624	1786181757332656217	/mnt/16t-2/sqy/code/GSFusion_runnable_main/extensions/cell_aware3_rasterizer/build/temp.linux-x86_64-cpython-310/rasterize_pixels.o	586c5b3c415063ee
