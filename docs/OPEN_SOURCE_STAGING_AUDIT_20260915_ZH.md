@@ -8,8 +8,8 @@
 
 ## staging 位置
 
-- 194：`/mnt/16t-2/sqy/GSFusion_public_staging_20260915`
-- 本地：`D:\asus\桌面的东西\科研存放\GSFusion_public_staging_20260915`
+- 服务器端 staging 只作为生成和审计中间物，不作为公开仓库依赖；
+- 本地 staging 保存在科研存放目录下，公开代码应从本地副本继续维护。
 
 ## 已纳入
 
@@ -29,7 +29,7 @@
 ## 已验证
 
 - staging 不含 `Checkpoint*`、`analysis`、`external_baselines`、原始数据文件、权重和日志；
-- staging 中没有 `/mnt/`、`/home/star`、Windows 本机路径等路径引用；
+- 源码和配置中没有服务器绝对路径、环境目录或本机路径引用；维护文档中的路径说明不属于运行时依赖；
 - 在 `sqy` 环境中 `compileall` 返回 `0`；
 - 原项目没有被移动、删除或覆盖。
 
