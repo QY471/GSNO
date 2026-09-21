@@ -7,7 +7,10 @@ import torch.nn as nn
 import skimage.measure as measure
 import torch.nn.functional as F
 import cv2
-import tools.Pypher as Pypher
+try:
+    import tools.Pypher as Pypher
+except ModuleNotFoundError:  # public environments can use the BSD PyPI package
+    import pypher as Pypher
 import random
 import re
 import math

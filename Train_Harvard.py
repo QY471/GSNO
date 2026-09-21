@@ -15,10 +15,8 @@ from pathlib import Path
 
 
 MODEL_ALIASES = {
-    "e3": "hr_fused_circular_primitive_embedding",
-    "e6": "e6_msi_routed_gaussian",
-    "nogs": "gsno_nogs_identity",
-    "adci_nogs": "gsno_nogs_identity",
+    "gsno": "e3_constrained_elliptical_gaussian",
+    "e3": "e3_constrained_elliptical_gaussian",
 }
 
 
@@ -87,13 +85,15 @@ def main():
         )
 
     model_name = get_arg_value(
-        user_args, "--model", "e6_msi_routed_gaussian"
+        user_args,
+        "--model",
+        "e3_constrained_elliptical_gaussian",
     )
     scale = get_arg_value(user_args, "--sf", "4")
 
     defaults = [
         "--dataset", "harvard",
-        "--model", "e6_msi_routed_gaussian",
+        "--model", "e3_constrained_elliptical_gaussian",
         "--checkpoint_root", "Checkpoint_Harvard",
         "--sizeI", "64",
         "--batch_size", "32",

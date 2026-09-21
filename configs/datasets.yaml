@@ -1,0 +1,11 @@
+# Local paths only. Dataset files are not redistributed with this repository.
+
+cave:
+  train: /path/to/Cave/Train
+  test: /path/to/Cave/Test
+
+harvard:
+  train: /path/to/Harvard/Train
+  test: /path/to/Harvard/Test
+
+# Override these paths on the command line or with CAVE_ROOT/HARVARD_ROOT.

@@ -1,0 +1,44 @@
+# Local datasets and generated experiment state
+Cave/
+Harvard/
+Chikusei_AFNO/
+Checkpoint*/
+checkpoints/*
+!checkpoints/README.md
+experiments/
+run/
+results/
+RESULTS/
+*.h5
+*.mat
+*.pth
+*.pth.tar
+*.pt
+
+# Python and build artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+*.so
+*.dll
+*.obj
+*.o
+
+# Local configuration and editor files
+.env
+.venv/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs and local reports
+*.log
+*.out
+*.csv
+*.json
+!configs/*.json
+# End of ignore rules

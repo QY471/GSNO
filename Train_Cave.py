@@ -102,9 +102,8 @@ def load_matching_initialization(model, checkpoint_path):
     return len(matched), model_only, data_generator_state
 
 MODEL_ALIASES = {
-    "gsno_nogs": "gsno_nogs_identity",
-    # Kept so frozen E6 configs and older commands continue to resolve.
-    "e6_msi_guided_hsi_routing": "e6_msi_routed_gaussian",
+    "gsno": "e3_constrained_elliptical_gaussian",
+    "e3": "e3_constrained_elliptical_gaussian",
 }
 
 
@@ -1852,6 +1851,20 @@ MODEL_SPECS["e3_cnn_mlp"] = {
                     ("cnn_hsi_layers.", "cnn_msi_layers.", "pointwise_latent.")},
 }
 
+# The public branch contains only GSNO and in-repository controls. Official
+# comparison implementations and historical archives stay in the private
+# research workspace and are not importable from this release candidate.
+MODEL_SPECS = {
+    name: spec
+    for name, spec in MODEL_SPECS.items()
+    if not spec["module"].startswith(("model.baselines.", "model.archive."))
+}
+MODEL_ALIASES = {
+    name: target
+    for name, target in MODEL_ALIASES.items()
+    if target in MODEL_SPECS
+}
+
 MODEL_CHOICES = sorted(set(MODEL_SPECS.keys()) | set(MODEL_ALIASES.keys()))
 
 
@@ -2143,7 +2156,10 @@ if __name__ == "__main__":
     parser.add_argument("--afno_scheduler_stop", default=200, type=int,
                         help="Exclusive final milestone for the supplied AFNO scheduler")
 
-    parser.add_argument("--model", default="gsno_nogs_identity", choices=MODEL_CHOICES,
+    parser.add_argument(
+                        "--model",
+                        default="e3_constrained_elliptical_gaussian",
+                        choices=MODEL_CHOICES,
                         help='Which model implementation to train')
     parser.add_argument("--run_name", default=None, type=str,
                         help='Optional experiment name for logs/checkpoints')
