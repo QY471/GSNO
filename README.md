@@ -10,8 +10,9 @@ at `4x` and the same frozen parameters are evaluated at `4x`, `8x`, `16x`, and
 `e3_constrained_elliptical_gaussian`, using the native ADCI path and the CUDA
 Gaussian renderer. It is not the later `ADCICUDAExactContinuous` candidate.
 
-> **Release status.** This branch is the public-release preparation branch.
-> Dataset files and trained weights are intentionally excluded. The CUDA
+> **Release status.** This repository is the public code release associated
+> with the manuscript. Dataset files and trained weights are intentionally
+> excluded. The CUDA
 > rasterizer files retain their upstream non-commercial research license; see
 > [`third_party/README.md`](third_party/README.md) before redistribution.
 
