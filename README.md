@@ -8,11 +8,11 @@ GSNO is evaluated under a single-ratio training protocol: the model is trained
 at `4x` and the same frozen parameters are evaluated at `4x`, `8x`, `16x`, and
 `32x`. The paper result reported as `52.68 dB` on CAVE is produced by
 `e3_constrained_elliptical_gaussian`, using the native ADCI path and the CUDA
-Gaussian renderer. It is not the later `ADCICUDAExactContinuous` candidate.
+Gaussian renderer. `model/gsno.py` exposes this same class as `GSNO` without
+changing its parameters or checkpoint keys.
 
-> **Release status.** This repository is the public code release associated
-> with the manuscript. Dataset files and trained weights are intentionally
-> excluded. The CUDA
+> **Status.** This is a pre-submission source package. Dataset files and trained
+> weights are not included. The CUDA
 > rasterizer files retain their upstream non-commercial research license; see
 > [`third_party/README.md`](third_party/README.md) before redistribution.
 
@@ -38,26 +38,27 @@ Paper: [current manuscript repository](https://github.com/QY471/icassp)
 ## Repository Layout
 
 ```text
-GSFusion/
+GSNO/
 ├── Train_Cave.py                 # shared CAVE/Harvard training entry point
 ├── Train_Harvard.py              # Harvard convenience entry point
 ├── datasets/                     # dataset loaders and degradation protocol
 ├── model/                        # GSNO model and controlled variants
 ├── extensions/                   # CUDA/Triton acceleration modules
-├── tools/                        # metrics, evaluation, and audit utilities
+├── tools/                        # metrics and evaluation utilities
 ├── configs/datasets.yaml         # local dataset path template
 ├── scripts/                      # reproducible train/evaluation commands
 ├── checkpoints/README.md         # checkpoint release table
-├── requirements-public.txt       # minimal public dependency list
+├── requirements.txt              # minimal public dependency list
 ├── CITATION.cff                  # machine-readable citation
 └── third_party/                  # provenance and license boundaries
 ```
 
 The formal paper model is registered as
 `e3_constrained_elliptical_gaussian`. In-repository
-controls remain in `model/` for the main ablation protocol. Official baseline
-implementations and their private source snapshots are intentionally omitted;
-comparison methods should be obtained from their own releases.
+experimental variants remain in `model/`; they are not all paper ablations.
+Their existing module paths are retained for checkpoint compatibility. Official baseline
+implementations are intentionally omitted; comparison methods should be obtained
+from their official releases.
 
 The paper's CAVE main result uses this model with `dim=80`, `seed=1`,
 `ep_total=1000`, and `sf=4`. The selected checkpoint is at epoch `555` and
@@ -65,20 +66,30 @@ reports `52.6838439 dB` at `4x` (rounded to `52.68 dB` in the paper).
 
 ## Installation
 
-The main model uses PyTorch, CUDA, and Triton. Use a Python environment that
-matches the installed CUDA toolkit, then install the public dependencies:
+The paper model uses PyTorch and a compiled CUDA rasterizer. Linux with an
+NVIDIA GPU, a compatible CUDA toolkit (including `nvcc`), and a C++ compiler
+is recommended. Triton is used only by the optional accelerated variants.
+Install a CUDA-enabled PyTorch build matching your toolkit before proceeding:
 
 ```bash
+git clone https://github.com/QY471/GSNO.git
+cd GSNO
+
 conda create -n gsno python=3.10 -y
 conda activate gsno
 pip install --upgrade pip
-pip install -r requirements-public.txt
+pip install -r requirements.txt
+
+cd extensions/adaptive3_rasterizer
+python setup.py build_ext --inplace
+cd ../..
+python -c "from model.gsno import GSNO; GSNO(dim=80, num_bands=31, num_msi=3, adci_layers=3)"
 ```
 
-The adaptive Gaussian rasterizer is compiled on first use. A CUDA compiler and
-the PyTorch CUDA build must be available. CPU-only execution is supported only
-for inspecting the pure-PyTorch utilities; it is not a reproduction of the
-reported training protocol.
+Build the extension in place: the model imports the bundled source directory.
+The extension is not compiled automatically. CPU-only execution supports the
+data utilities and release tests, not the paper model. The original trained
+weights are not included, so this package alone does not verify the reported PSNR.
 
 ## Data Preparation
 
@@ -95,11 +106,20 @@ from their official sources and arrange the local paths as follows:
 └── Test/
 ```
 
-The CAVE loader expects the standard `Train.txt` and `Test.txt` lists together
-with the HSI/MSI files. The Harvard loader expects numbered MAT files with
-`HS` and `HRMS` arrays. Set the paths in
-[`configs/datasets.yaml`](configs/datasets.yaml), or pass them directly on the
-command line.
+For CAVE, each split contains `HSI/<scene>.mat` (key `hsi`, shape
+`512 x 512 x 31`) and `RGB/<scene>.mat` (key `rgb`, shape `512 x 512 x 3`).
+`Train/Train.txt` and `Test/Test.txt` list scene names without extensions,
+one per line. The loader expects 20 training and 12 test scenes.
+
+For Harvard, `Train/1.mat` through `Train/67.mat` and `Test/1.mat` through
+`Test/10.mat` contain `HS` (`1040 x 1392 x 31`) and `HRMS`
+(`1040 x 1392 x 3`). The training loader samples from the top-left
+`1024 x 1024` region. Supply the prepared paired MAT files in the original
+experiment order; this repository does not include dataset conversion or split files.
+
+Pass paths using `--data_path` and `--test_data_path`, or set `CAVE_ROOT` /
+`HARVARD_ROOT`. `configs/datasets.yaml` is a path template only; the training
+scripts do not read it automatically.
 
 The released degradation protocol applies a Gaussian blur with standard
 deviation `2.0` followed by phase-aligned downsampling. Training patches are
@@ -108,8 +128,7 @@ or the documented evaluation crop.
 
 ## Training
 
-The paper-facing configuration uses the same model parameters for CAVE and
-Harvard, with only the dataset paths and split changing.
+The CAVE configuration associated with the reported result is:
 
 ```bash
 python Train_Cave.py \
@@ -121,7 +140,8 @@ python Train_Cave.py \
   --checkpoint_root Checkpoint_CAVE
 ```
 
-For Harvard:
+The same shared trainer can run on Harvard (example configuration, not a
+verified reproduction of the Harvard table):
 
 ```bash
 python Train_Cave.py \
@@ -135,6 +155,10 @@ python Train_Cave.py \
 
 Convenience launchers are provided in `scripts/`. Each run writes its
 configuration, logs, and checkpoints under the selected checkpoint root.
+TensorBoard events are written to `run/<run_name>/`.
+The training script selects `best_model.pth` using the PSNR on
+`--test_data_path` every `--e_every` epochs. This is the existing experiment
+protocol; it does not use a separate validation split.
 
 ## Evaluation
 
@@ -143,8 +167,8 @@ multiscale evaluator:
 
 ```bash
 python tools/evaluate_dynamic_model_multiscale.py \
-  --module model.GSFusion_E3_ConstrainedEllipticalGaussian \
-  --checkpoint /path/to/model_best.pth \
+  --module model.gsno \
+  --checkpoint /path/to/best_model.pth \
   --data-path /path/to/Cave/Test \
   --scales 4 8 16 32 \
   --dim 80 \
@@ -158,31 +182,49 @@ released checkpoint, replace them with the values stored in its run metadata.
 The evaluator reports PSNR, SAM, ERGAS with the fixed reference factor `4`,
 SSIM, and per-image CSV results.
 
+`tools/evaluate_harvard_multiscale.py` is a separate diagnostic using a
+top-left `512 x 512` crop and a required dataset manifest. It does not use the
+training loader's default `1024 x 1024` evaluation crop. The matching manifest
+and checkpoint have not been supplied with this package; the Harvard table is
+not yet independently reproducible from the repository alone.
+
 ## Checkpoints and Results
 
-Weights are distributed separately from the source tree so that the Git
-repository stays small and dataset licenses are respected. The checkpoint
-table and SHA256 fields belong in [`checkpoints/README.md`](checkpoints/README.md)
-when the final assets are approved.
+Trained weights have not been released. See
+[`checkpoints/README.md`](checkpoints/README.md) for availability. The CAVE
+PSNR above is a recorded experiment result, not a fresh reproduction from this
+package. Do not substitute the metadata of that run for a newly trained model.
+
+## Tests
+
+```bash
+python -m unittest discover -s tests -v
+python tools/check_public_release.py
+```
+
+These tests cover imports, data degradation, documentation links, and model
+aliases. They do not validate CUDA rendering or the reported paper metrics.
+The safety check scans tracked working-tree files only, not Git history or
+third-party distribution rights.
 
 ## Citation
 
 ```bibtex
-@inproceedings{shi2027gsno,
+@misc{shi2026gsno,
   title     = {Gaussian Spatial-Spectral Neural Operator},
   author    = {Shi, Qinyi and Zhu, Junwei and Zhang, Mouyi and Xu, Honghui and Zheng, Jianwei},
-  booktitle = {2027 IEEE International Conference on Acoustics, Speech, and Signal Processing},
-  year      = {2027}
+  year      = {2026},
+  note      = {Unpublished manuscript},
+  url       = {https://github.com/QY471/GSNO}
 }
 ```
 
 ## License
 
-The original GSNO source is intended for academic research. Files copied or
-adapted from external projects keep their own license and attribution notices;
-the most visible case is the Inria/MPII Gaussian rasterizer under
-`extensions/`. See [`third_party/README.md`](third_party/README.md) before
-redistributing a release archive.
+The original GSNO code does not yet have an author-approved distribution
+license. Bundled rasterizers retain the Inria/MPII research-only license.
+AFNO-derived components and EDSR provenance also require author confirmation.
+See [`third_party/README.md`](third_party/README.md) before public redistribution.
 
 ## Contact
 

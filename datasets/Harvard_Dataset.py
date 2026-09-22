@@ -1,6 +1,7 @@
-"""Harvard dataset behavior matching the AFNO code supplied by the user.
+"""Harvard dataset used by the paper's training protocol.
 
-This module deliberately preserves the supplied AFNO Harvard protocol:
+Adapted from the supplied AFNO Harvard loader; see third_party/README.md.
+The loader follows the fixed Harvard protocol:
 
 * 67 training MAT files and 10 testing MAT files are loaded by the caller;
 * all 67 loaded training scenes participate in random sampling;
@@ -25,13 +26,13 @@ import torch.utils.data as tud
 from tools.Utils import make_coord, para_setting
 
 
-AFNO_LOADED_TRAIN_COUNT = 67
-AFNO_LOADED_TEST_COUNT = 10
-AFNO_SPATIAL_SUPPORT = 1024
+LOADED_TRAIN_COUNT = 67
+LOADED_TEST_COUNT = 10
+SPATIAL_SUPPORT = 1024
 
 
 def prepare_data_harvard(path, file_num):
-    """Load AFNO's numbered MAT files, reading only ``HS`` and ``HRMS``."""
+    """Load numbered MAT files, reading only ``HS`` and ``HRMS``."""
 
     hr_hsi = np.zeros((1040, 1392, 31, file_num))
     hr_msi = np.zeros((1040, 1392, 3, file_num))
@@ -44,9 +45,9 @@ def prepare_data_harvard(path, file_num):
 
 
 class harvard_dataset(tud.Dataset):
-    """Behavior-compatible Harvard dataset for the supplied AFNO protocol."""
+    """Harvard dataset used by the training protocol."""
 
-    source_kind = "harvard_afno_sent"
+    source_kind = "harvard_standard"
 
     def __init__(self, opt, HR_HSI, HR_MSI, istrain=True):
         super().__init__()
@@ -56,13 +57,13 @@ class harvard_dataset(tud.Dataset):
 
         if self.istrain:
             self.num = int(opt.trainset_num)
-            self.file_num = AFNO_LOADED_TRAIN_COUNT
+            self.file_num = LOADED_TRAIN_COUNT
             self.sizeI = int(opt.sizeI)
         else:
             self.num = int(opt.testset_num)
-            self.file_num = AFNO_LOADED_TEST_COUNT
+            self.file_num = LOADED_TEST_COUNT
             self.sizeI = int(
-                getattr(opt, "eval_crop_size", AFNO_SPATIAL_SUPPORT)
+                getattr(opt, "eval_crop_size", SPATIAL_SUPPORT)
             )
         self.crop_top = int(getattr(opt, "eval_crop_top", 0)) if not self.istrain else 0
         self.crop_left = int(getattr(opt, "eval_crop_left", 0)) if not self.istrain else 0
@@ -94,16 +95,16 @@ class harvard_dataset(tud.Dataset):
             )
         if self.istrain and HR_HSI.shape[-1] < self.file_num:
             raise ValueError(
-                "The supplied AFNO loader requires all 67 training scenes"
+                "The Harvard training split requires all 67 scenes"
             )
         if not self.istrain and HR_HSI.shape[-1] < self.num:
             raise ValueError(
-                "The supplied AFNO loader has fewer test scenes than testset_num"
+                "The Harvard test split has fewer scenes than testset_num"
             )
 
     @staticmethod
     def H_z(z, factor, fft_B):
-        """Apply AFNO's Gaussian blur and phase-aligned spatial sampling."""
+        """Apply Gaussian blur and phase-aligned spatial sampling."""
 
         frequency = torch.fft.fft2(z, dim=(-2, -1))
         frequency = torch.stack((frequency.real, frequency.imag), -1)
@@ -182,8 +183,8 @@ class harvard_dataset(tud.Dataset):
         ).float()
 
         if self.istrain:
-            px = random.randint(0, AFNO_SPATIAL_SUPPORT - self.sizeI)
-            py = random.randint(0, AFNO_SPATIAL_SUPPORT - self.sizeI)
+            px = random.randint(0, SPATIAL_SUPPORT - self.sizeI)
+            py = random.randint(0, SPATIAL_SUPPORT - self.sizeI)
         else:
             px = self.crop_top
             py = self.crop_left
@@ -225,7 +226,3 @@ class harvard_dataset(tud.Dataset):
 
     def __len__(self):
         return self.num
-
-
-# Compatibility alias for code that uses the explicit supplied-protocol name.
-harvard_afno_sent_dataset = harvard_dataset

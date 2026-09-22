@@ -15,8 +15,7 @@ except ImportError:
 
 def add_impulse_noise(img, amount=0.10, salt_vs_pepper=0.5):
     """
-    输入 img: torch.Tensor, shape [C, H, W]
-    输出: torch.Tensor, shape [C, H, W]
+    Input and output tensors have shape [C, H, W].
     """
     # assert isinstance(img, torch.Tensor)
     img_np = img.cpu().numpy()
@@ -27,7 +26,7 @@ def add_impulse_noise(img, amount=0.10, salt_vs_pepper=0.5):
     n_salt = int(amount * num_pixels * salt_vs_pepper)
     n_pepper = int(amount * num_pixels * (1. - salt_vs_pepper))
 
-    # 随机选像素
+    # Select impulse locations.
     idx = np.random.choice(num_pixels, n_salt + n_pepper, replace=False)
     rows, cols = np.unravel_index(idx, (h, w))
     max_v = img_np.max()
@@ -37,7 +36,7 @@ def add_impulse_noise(img, amount=0.10, salt_vs_pepper=0.5):
     # pepper
     img_np[rows[n_salt:], cols[n_salt:], :] = min_v
 
-    img_np = np.transpose(img_np, (2, 0, 1))  # 回到CHW
+    img_np = np.transpose(img_np, (2, 0, 1))  # Back to CHW.
     return torch.from_numpy(img_np).type_as(img)
 
 
@@ -60,13 +59,13 @@ class cave_dataset(tud.Dataset):
     def H_z(self, z, factor, fft_B):
         f = torch.fft.fft2(z, dim=(-2, -1))
         f = torch.stack((f.real,f.imag),-1)
-        # -------------------complex myltiply-----------------#
+        # Complex multiplication in the Fourier domain.
         if len(z.shape) == 3:
             ch, h, w = z.shape
             fft_B = fft_B.unsqueeze(0).repeat(ch, 1, 1, 1)
             M = torch.cat(((f[:, :, :, 0] * fft_B[:, :, :, 0] - f[:, :, :, 1] * fft_B[:, :, :, 1]).unsqueeze(3),
                            (f[:, :, :, 0] * fft_B[:, :, :, 1] + f[:, :, :, 1] * fft_B[:, :, :, 0]).unsqueeze(3)), 3)
-            Hz = torch.irfft(M, 2, onesided=False)
+            Hz = torch.fft.ifft2(torch.complex(M[..., 0], M[..., 1]), dim=(-2, -1))
             x = Hz[:, int(factor // 2)-1::factor, int(factor // 2)-1::factor]
         elif len(z.shape) == 4:
             bs, ch, h, w = z.shape

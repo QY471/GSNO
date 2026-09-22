@@ -1,8 +1,10 @@
 # Local datasets and generated experiment state
 Cave/
 Harvard/
+Chikusei/
 Chikusei_AFNO/
 Checkpoint*/
+!checkpoints/
 checkpoints/*
 !checkpoints/README.md
 experiments/

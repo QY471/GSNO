@@ -1,11 +1,7 @@
-"""
-GSFusion GSNO Adapter - connect the original GSNO model to train.py.
+"""Shared fusion layers, ADCI implementation, and reconstruction losses.
 
-Minimal changes from the original GSNO:
-1. Rename the trainable class to GSFusion.
-2. Add collect_gs_stats() for diagnostics.
-3. Add compute_loss / sam_loss.
-4. Accept standard train.py kwargs such as dim, num_bands, num_msi.
+ADCI is adapted from the supplied AFNO implementation; see third_party/README.md.
+The paper model is exposed through model.gsno.
 """
 
 import math

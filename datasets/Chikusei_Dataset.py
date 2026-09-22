@@ -1,7 +1,7 @@
-"""Chikusei loader for 4x-only training and 4/8/16/32x evaluation.
+"""Chikusei loader for 4x training and cross-scale evaluation.
 
 Only GT and RGB are read from HDF5. LR-HSI is generated online with the
-same Gaussian degradation convention used by the supplied AFNO-style code.
+Gaussian degradation protocol used by the training scripts.
 """
 
 from __future__ import annotations
@@ -16,11 +16,11 @@ import torch.utils.data as tud
 from tools.Utils import make_coord, para_setting
 
 
-class ChikuseiAFNODataset(tud.Dataset):
+class ChikuseiDataset(tud.Dataset):
     def __init__(self, opt, _hr_hsi=None, _hr_msi=None, istrain=True):
         super().__init__()
         if isinstance(opt, (str, bytes)):
-            # Lightweight direct-use compatibility: Dataset(path, sf, istrain).
+            # Support direct construction as Dataset(path, sf, istrain).
             self.file_path = str(opt)
             self.factor = int(_hr_hsi)
             if isinstance(_hr_msi, bool):
@@ -109,5 +109,4 @@ class ChikuseiAFNODataset(tud.Dataset):
         return self.length
 
 
-# Compatibility name for training code that expects a function-like class.
-chikusei_dataset = ChikuseiAFNODataset
+chikusei_dataset = ChikuseiDataset

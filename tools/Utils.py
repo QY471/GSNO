@@ -9,8 +9,8 @@ import torch.nn.functional as F
 import cv2
 try:
     import tools.Pypher as Pypher
-except ModuleNotFoundError:  # public environments can use the BSD PyPI package
-    import pypher as Pypher
+except ModuleNotFoundError:
+    from pypher import pypher as Pypher
 import random
 import re
 import math
@@ -297,7 +297,7 @@ def H_z(z, factor, fft_B):
     #     z  [31 , 96 , 96]
     #     ch, h, w = z.shape
     f = torch.rfft(z, 2, onesided=False)
-    # -------------------complex myltiply-----------------#
+    # Complex multiplication in the Fourier domain.
     if len(z.shape) == 3:
         ch, h, w = z.shape
         fft_B = fft_B.unsqueeze(0).repeat(ch, 1, 1, 1)
@@ -537,12 +537,12 @@ def extract_high_freq(x):
     # x shape: (B, C, H, W)
     B, C, H, W = x.shape
 
-    # 傅里叶变换
+    # Fourier transform.
     fft_x = torch.fft.fft2(x, dim=(-2, -1))
     fft_x = torch.fft.fftshift(fft_x)
 
-    # 带通滤波器，仅保留高频信息
-    freq_thresh = 0.5  # 可以根据需要调整
+    # Keep frequencies outside the low-frequency radius.
+    freq_thresh = 0.5
     center_h, center_w = H // 2, W // 2
     mask = torch.zeros_like(x)
     for i in range(H):

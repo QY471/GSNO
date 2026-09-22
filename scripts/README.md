@@ -1,8 +1,7 @@
 # Reproducible launchers
 
-The shell launchers mirror the command-oriented layout used by recent public
-HSI–MSI fusion repositories. They require Bash, Python, a CUDA-enabled PyTorch
-installation, and the local dataset root.
+Run the launchers from the repository root. They require Bash, Python,
+CUDA-enabled PyTorch, the compiled rasterizer, and prepared datasets.
 
 ```bash
 export DATA_ROOT=/path/to/datasets
@@ -15,7 +14,7 @@ recorded by the training run:
 
 ```bash
 export DATA_ROOT=/path/to/datasets
-export CHECKPOINT=/path/to/model_best.pth
+export CHECKPOINT=/path/to/best_model.pth
 export BEST_EPOCH=555
 export BEST_PSNR=52.6838439
 bash scripts/run_eval_cave_cross_scale.sh

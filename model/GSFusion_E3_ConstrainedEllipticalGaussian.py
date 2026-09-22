@@ -1,15 +1,8 @@
-"""E3 with a fixed-center, area-preserving constrained elliptical Gaussian.
+"""GSNO with fixed-center, area-preserving elliptical Gaussian kernels.
 
-This variant keeps the complete E3 reconstruction and primitive-embedding
-paths unchanged.  Relative to circular E3, it adds only a bounded anisotropy
-and orientation prediction for each HR-grid Gaussian.  The center stays on the
-HR pixel, the principal-axis standard deviations remain inside E3's original
-physical HR-pixel range, density normalization is unchanged, and rendering
-still uses the adaptive per-Gaussian 3-sigma CUDA window.
-
-The extra geometry is initialized to zero, so after loading circular E3's
-paired epoch-0 state this model is exactly circular at initialization.  It can
-therefore retain the E3 solution when directional geometry is not useful.
+The geometry head predicts bounded anisotropy and orientation. Rendering uses
+density normalization and adaptive 3-sigma support. A zero geometry head
+initializes the kernels as circles.
 """
 
 from __future__ import annotations
@@ -52,9 +45,7 @@ class ConstrainedEllipticalGaussianResidual(CircularGaussianResidual):
         # maximum principal-axis ratio.  A signed a swaps the two axes.
         self.max_log_stretch = 0.5 * math.log(self.max_axis_ratio)
 
-        # Two deliberately minimal extra parameters per location:
-        # bounded log-stretch and orientation.  A direct 1x1 head avoids
-        # adding another hidden spatial/content transformation.
+        # Predict log-stretch and orientation at each location.
         self.anisotropy_head = nn.Conv2d(dim, 2, kernel_size=1)
         self.last_stats: Optional[Dict[str, float]] = None
 

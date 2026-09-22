@@ -1,9 +1,8 @@
-"""AFNO-compatible Harvard entrypoint for the runnable GSFusion models.
+"""Harvard training entrypoint for the runnable GSNO models.
 
-The data behavior and optimization defaults follow the senior AFNO project's
-``Train_Harvard.py``. Model construction, checkpointing and metrics remain in
-the shared ``Train_Cave.py`` trainer so E3, E6 and ADCI-NoGS use one training
-implementation.
+Model construction, checkpointing, and metrics use the shared Train_Cave.py
+trainer. This wrapper retains its own optimization defaults; use explicit
+arguments to reproduce a particular run.
 
 No dataset path is hard-coded. Pass ``--data_root`` or set ``HARVARD_ROOT``.
 """
@@ -110,7 +109,7 @@ def main():
         "--scheduler", "cosine",
         "--lr_step_size", "5",
         "--lr_gamma", "0.95",
-        "--afno_scheduler_stop", "200",
+        "--scheduler_stop", "200",
         "--eval_tile_size", "0",
         "--eval_tile_halo", "0",
         "--dim", "64",

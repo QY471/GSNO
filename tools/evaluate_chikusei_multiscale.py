@@ -19,7 +19,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from datasets.Chikusei_AFNO_Dataset import ChikuseiAFNODataset
+from datasets.Chikusei_Dataset import ChikuseiDataset
 from tools.Utils import cal_psnr, compute_ergas, compute_sam, compute_ssim
 
 
@@ -87,7 +87,7 @@ def load_model(
 
 
 def make_loader(test_file, scale):
-    dataset = ChikuseiAFNODataset(test_file, scale, False)
+    dataset = ChikuseiDataset(test_file, scale, False)
     return tud.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
 
 
@@ -187,7 +187,7 @@ def main():
         "selection_rule": args.selection_rule,
         "selected_4x_best_epoch": args.selected_4x_best_epoch,
         "selected_4x_best_psnr": args.selected_4x_best_psnr,
-        "dataset": "Chikusei supplied AFNO-compatible GT/RGB protocol",
+        "dataset": "Chikusei GT/RGB protocol",
         "test_file": str(test_file),
         "num_bands": args.num_bands,
         "num_msi": args.num_msi,

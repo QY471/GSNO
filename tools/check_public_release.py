@@ -1,4 +1,7 @@
-"""Fail closed when private artifacts or local paths enter a public release."""
+"""Check tracked working-tree files for private artifacts and local paths.
+
+This check does not inspect Git history or establish redistribution rights.
+"""
 
 from __future__ import annotations
 
@@ -52,7 +55,8 @@ def tracked_files() -> list[Path]:
 
 def main() -> int:
     failures: list[str] = []
-    for path in tracked_files():
+    paths = tracked_files()
+    for path in paths:
         relative = path.relative_to(ROOT).as_posix()
         lowered = relative.lower()
         is_release_readme = lowered == "checkpoints/readme.md"
@@ -65,10 +69,14 @@ def main() -> int:
         ):
             failures.append(f"private artifact suffix: {relative}")
         if not path.is_file():
+            failures.append(f"missing tracked file: {relative}")
             continue
         try:
             text = path.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
+        except UnicodeDecodeError:
+            continue
+        except OSError:
+            failures.append(f"unreadable tracked file: {relative}")
             continue
         for pattern in SECRET_PATTERNS:
             if pattern.search(text):
@@ -82,7 +90,7 @@ def main() -> int:
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         return 1
-    print(f"Public-release safety check passed for {len(tracked_files())} tracked files.")
+    print(f"Working-tree safety check passed for {len(paths)} tracked files (history not checked).")
     return 0
 
 
