@@ -16,7 +16,6 @@ import torch.utils.data as tud
 
 from torch import optim
 from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts
-from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -27,7 +26,6 @@ from datasets.Harvard_Dataset import (
 )
 
 from tools.Utils import *
-from tools.SSIM import *
 
 
 def custom_repr(self):
@@ -164,13 +162,10 @@ def prepare_dataset_inputs(opt, split, use_cache=False):
 
 
 def unpack_dataset_batch(batch):
-    """Accept the project's 3-item batches and coordinate-aware batches."""
+    """Unpack one CAVE or Harvard sample."""
     if len(batch) == 3:
         return batch
-    if len(batch) == 4:
-        lr_hsi, hr_msi, hr_hsi, _coord = batch
-        return lr_hsi, hr_msi, hr_hsi
-    raise ValueError(f"Expected a 3- or 4-item dataset batch, got {len(batch)}")
+    raise ValueError(f"Expected a 3-item dataset batch, got {len(batch)}")
 
 logger = logging.getLogger("LOG")
 logger.setLevel(logging.INFO)
@@ -274,7 +269,7 @@ def setup_run_context(opt):
     return run_name, ckpt_dir, writer
 
 
-def forward_tiled(test_model, lr_hsi, hr_msi, sf, tile_size, halo, return_aux=False):
+def forward_tiled(test_model, lr_hsi, hr_msi, sf, tile_size, halo):
     """Run aligned HR tiles while keeping LR/HR coordinates synchronized."""
     if lr_hsi.shape[0] != 1 or hr_msi.shape[0] != 1:
         raise ValueError("Tiled evaluation currently requires batch size 1")
@@ -282,8 +277,6 @@ def forward_tiled(test_model, lr_hsi, hr_msi, sf, tile_size, halo, return_aux=Fa
     tile_size = int(tile_size)
     halo = int(halo)
     if tile_size <= 0:
-        if return_aux:
-            return test_model(lr_hsi, hr_msi, sf, return_aux=True)
         return test_model(lr_hsi, hr_msi, sf)
     if tile_size % sf or halo % sf:
         raise ValueError(f"eval tile size/halo must be divisible by sf={sf}")
@@ -291,7 +284,6 @@ def forward_tiled(test_model, lr_hsi, hr_msi, sf, tile_size, halo, return_aux=Fa
         raise ValueError(f"HR evaluation size {(height, width)} must be divisible by sf={sf}")
 
     output = None
-    aux_output = {}
     for y0 in range(0, height, tile_size):
         y1 = min(height, y0 + tile_size)
         for x0 in range(0, width, tile_size):
@@ -303,13 +295,7 @@ def forward_tiled(test_model, lr_hsi, hr_msi, sf, tile_size, halo, return_aux=Fa
 
             lr_tile = lr_hsi[..., ey0 // sf:ey1 // sf, ex0 // sf:ex1 // sf]
             msi_tile = hr_msi[..., ey0:ey1, ex0:ex1]
-            if return_aux:
-                tile_output, tile_aux = test_model(
-                    lr_tile, msi_tile, sf, return_aux=True
-                )
-            else:
-                tile_output = test_model(lr_tile, msi_tile, sf)
-                tile_aux = {}
+            tile_output = test_model(lr_tile, msi_tile, sf)
 
             if output is None:
                 output = tile_output.new_empty(
@@ -319,19 +305,6 @@ def forward_tiled(test_model, lr_hsi, hr_msi, sf, tile_size, halo, return_aux=Fa
             cx0, cx1 = x0 - ex0, x1 - ex0
             output[..., y0:y1, x0:x1] = tile_output[..., cy0:cy1, cx0:cx1]
 
-            for key, value in tile_aux.items():
-                if not torch.is_tensor(value) or value.ndim != 4:
-                    continue
-                if value.shape[-2:] != tile_output.shape[-2:]:
-                    continue
-                if key not in aux_output:
-                    aux_output[key] = value.new_empty(
-                        value.shape[0], value.shape[1], height, width
-                    )
-                aux_output[key][..., y0:y1, x0:x1] = value[..., cy0:cy1, cx0:cx1]
-
-    if return_aux:
-        return output, aux_output
     return output
 
 
@@ -340,8 +313,6 @@ def evaluate(
     data_path=None,
     sf=4,
     dataset_name="cave",
-    return_x0=False,
-    return_base=False,
     dataset_options=None,
 ):
     test_model.eval()
@@ -375,29 +346,15 @@ def evaluate(
     psnr_total = 0.0
     sam_total = 0.0
     ergas_total = 0.0
-    x0_psnr_total = 0.0
-    base_psnr_total = 0.0
     k = 0
     for batch in loader_test:
         LR, RGB, HR = unpack_dataset_batch(batch)
         with torch.no_grad():
-            LR, RGB, HR = Variable(LR), Variable(RGB), Variable(HR)
             LR, RGB, HR = LR.cuda(), RGB.cuda(), HR.cuda()
-            if return_x0 or return_base:
-                out, aux = forward_tiled(
-                    test_model, LR, RGB, opt_evaluate.sf,
-                    opt_evaluate.eval_tile_size, opt_evaluate.eval_tile_halo,
-                    return_aux=True,
-                )
-                if return_x0:
-                    x0_result = aux["x0_no_dc"].cpu().data.squeeze().clamp(0, 1).numpy().transpose(1, 2, 0)
-                if return_base:
-                    base_result = aux["base"].cpu().data.squeeze().clamp(0, 1).numpy().transpose(1, 2, 0)
-            else:
-                out = forward_tiled(
-                    test_model, LR, RGB, opt_evaluate.sf,
-                    opt_evaluate.eval_tile_size, opt_evaluate.eval_tile_halo,
-                )
+            out = forward_tiled(
+                test_model, LR, RGB, opt_evaluate.sf,
+                opt_evaluate.eval_tile_size, opt_evaluate.eval_tile_halo,
+            )
 
             result = out.cpu().data.squeeze().clamp(0, 1).numpy().transpose(1, 2, 0)
             HR_np = HR.cpu().data.squeeze().clamp(0, 1).numpy().transpose(1, 2, 0)
@@ -407,10 +364,6 @@ def evaluate(
         sam_total += compute_sam(result, HR_np)
         # Keep the fixed-4 convention used by the project's formal CAVE tables.
         ergas_total += compute_ergas(result, HR_np, 4)
-        if return_x0:
-            x0_psnr_total += cal_psnr(x0_result, HR_np)
-        if return_base:
-            base_psnr_total += cal_psnr(base_result, HR_np)
         k += 1
 
     average_psnr = psnr_total / k
@@ -420,12 +373,6 @@ def evaluate(
         "ergas_fixed4": ergas_total / k,
         "num_images": k,
     }
-    if return_x0 and return_base:
-        return average_psnr, x0_psnr_total / k, base_psnr_total / k
-    if return_x0:
-        return average_psnr, x0_psnr_total / k
-    if return_base:
-        return average_psnr, base_psnr_total / k
     return average_psnr
 
 
