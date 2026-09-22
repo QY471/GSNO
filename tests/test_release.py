@@ -114,6 +114,7 @@ class ReleaseTests(unittest.TestCase):
             for link in re.findall(r'\]\(([^)]+)\)', path.read_text(encoding='utf-8')):
                 if '://' not in link and not link.startswith('#'):
                     self.assertTrue((path.parent / link.split('#')[0]).exists(), (name, link))
+        self.assertTrue((ROOT / 'assets/gsno_framework.png').is_file())
 
     def test_license_copies(self):
         license_text = (ROOT / 'third_party/LICENSE_GAUSSIAN_SPLATTING.md').read_bytes()
