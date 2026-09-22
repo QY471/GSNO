@@ -8,14 +8,18 @@ Qinyi Shi, Junwei Zhu, Mouyi Zhang, Honghui Xu, and Jianwei Zheng
 
 Zhejiang University of Technology
 
+<sub>* Corresponding author</sub>
+
 </div>
 
 <p align="center">
-  <img src="assets/gsno_framework.png" alt="GSNO framework" width="100%">
+  <img src="assets/gsno_framework.png" alt="GSNO framework" width="95%">
+  <br>
+  <em>Overall architecture of GSNO.</em>
 </p>
 
-> Pre-submission source package. Dataset files and trained weights are not
-> included. The repository is currently private.
+> This manuscript is currently under review. Dataset files and trained weights
+> are not included in the current source package.
 
 ## Highlights
 
@@ -36,7 +40,6 @@ GSNO/
 ├── tools/                         # Metrics and multiscale evaluation
 ├── scripts/                       # Training and evaluation launchers
 ├── checkpoints/                   # Checkpoint availability
-├── docs/                          # Reproduction notes
 ├── tests/                         # CPU regression tests
 ├── Train_Cave.py                 # Shared training entry point
 ├── Train_Harvard.py              # Harvard training wrapper
@@ -70,7 +73,7 @@ cd ../..
 The extension is compiled in place. CPU-only execution supports the data
 utilities and release tests, but not the paper model.
 
-## Data
+## Data Preparation
 
 The repository does not redistribute CAVE or Harvard. Arrange the datasets as:
 
@@ -94,17 +97,31 @@ protocol loads 67 training scenes and 10 test scenes and samples the top-left
 Set `CAVE_ROOT` or `HARVARD_ROOT`, or pass `--data_path` and
 `--test_data_path` to the training command.
 
-## Quick Test
+## Model Zoo
 
-Run the source checks without a dataset or CUDA build:
+Weights are not yet released. The recorded CAVE checkpoint reached
+`52.6838439 dB` at epoch `555`; this is historical run metadata, not a fresh
+reproduction from the source package. Released files and checksums will be
+listed in [checkpoints/README.md](checkpoints/README.md).
+
+## Evaluation
+
+Evaluate a frozen CAVE checkpoint across fusion ratios:
 
 ```bash
-python -m unittest discover -s tests -v
-python tools/check_public_release.py
+python tools/evaluate_dynamic_model_multiscale.py \
+  --module model.gsno \
+  --checkpoint /path/to/best_model.pth \
+  --data-path /path/to/Cave/Test \
+  --scales 4 8 16 32 \
+  --dim 80 \
+  --selected-4x-best-epoch 555 \
+  --selected-4x-best-psnr 52.6838439 \
+  --output results/cave_cross_scale.json
 ```
 
-These checks cover imports, degradation, loader shapes, documentation links,
-model aliases, and tracked-file safety. They do not reproduce the paper PSNR.
+The evaluator reports PSNR, SAM, ERGAS, SSIM, and per-image results. The same
+frozen parameters are used for every requested ratio.
 
 ## Training
 
@@ -133,36 +150,15 @@ For Harvard, use `Train_Harvard.py` with the corresponding data root. The
 training script selects `best_model.pth` using PSNR on `--test_data_path` every
 `--e_every` epochs, following the recorded experiment protocol.
 
-## Evaluation
-
-Evaluate a frozen CAVE checkpoint across fusion ratios:
+## Useful Commands
 
 ```bash
-python tools/evaluate_dynamic_model_multiscale.py \
-  --module model.gsno \
-  --checkpoint /path/to/best_model.pth \
-  --data-path /path/to/Cave/Test \
-  --scales 4 8 16 32 \
-  --dim 80 \
-  --selected-4x-best-epoch 555 \
-  --selected-4x-best-psnr 52.6838439 \
-  --output results/cave_cross_scale.json
+python -m unittest discover -s tests -v
+python tools/check_public_release.py
 ```
 
-The evaluator reports PSNR, SAM, ERGAS, SSIM, and per-image results. The same
-frozen parameters are used for every requested ratio.
-
-## Model Zoo
-
-Weights are not yet released. The recorded CAVE checkpoint reached
-`52.6838439 dB` at epoch `555`; this is historical run metadata, not a fresh
-reproduction from the source package. Released files and checksums will be
-listed in [checkpoints/README.md](checkpoints/README.md).
-
-## Reproduction Notes
-
-See [docs/reproduction.md](docs/reproduction.md) for the CAVE checkpoint
-metadata, Harvard protocol, and the limits of the current release package.
+These commands check imports, degradation, loader shapes, documentation links,
+model aliases, and tracked-file safety. They do not reproduce the paper PSNR.
 
 ## Citation
 

@@ -109,7 +109,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_document_links(self):
         for name in ('README.md', 'third_party/README.md', 'scripts/README.md',
-                     'model/README.md', 'docs/reproduction.md'):
+                     'model/README.md'):
             path = ROOT / name
             for link in re.findall(r'\]\(([^)]+)\)', path.read_text(encoding='utf-8')):
                 if '://' not in link and not link.startswith('#'):
