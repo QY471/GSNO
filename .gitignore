@@ -1,8 +1,6 @@
 # Local datasets and generated experiment state
 Cave/
 Harvard/
-Chikusei/
-Chikusei_AFNO/
 Checkpoint*/
 !checkpoints/
 checkpoints/*
@@ -43,4 +41,3 @@ dist/
 *.csv
 *.json
 !configs/*.json
-# End of ignore rules

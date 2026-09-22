@@ -1,4 +1,4 @@
-# Reproducible launchers
+# Training and Evaluation
 
 Run the launchers from the repository root. They require Bash, Python,
 CUDA-enabled PyTorch, the compiled rasterizer, and prepared datasets.
@@ -22,4 +22,4 @@ bash scripts/run_eval_cave_cross_scale.sh
 
 These values correspond to the paper's CAVE `4x` checkpoint. If a different
 run is evaluated, replace both values with the metadata printed by that run.
-The launcher refuses to guess checkpoint provenance.
+`BEST_EPOCH` and `BEST_PSNR` are required arguments.

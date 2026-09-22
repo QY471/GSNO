@@ -8,6 +8,7 @@ import subprocess
 import sys
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 import cv2
 import numpy as np
@@ -60,10 +61,41 @@ class ReleaseTests(unittest.TestCase):
         torch.testing.assert_close(sample[0], torch.full_like(sample[0], 0.5))
 
     def test_public_model_is_same_class(self):
-        original = importlib.import_module('model.GSFusion_E3_ConstrainedEllipticalGaussian')
         public = importlib.import_module('model.gsno')
-        self.assertIs(public.GSNO, original.GSFusion)
-        self.assertIs(public.compute_loss, original.compute_loss)
+        self.assertIs(public.GSNO, public.GSFusion)
+
+    def test_release_scope(self):
+        model_files = {p.relative_to(ROOT / 'model').as_posix()
+                       for p in (ROOT / 'model').rglob('*.py')}
+        self.assertEqual(model_files, {'gsno.py'})
+        dataset_files = {p.name for p in (ROOT / 'datasets').glob('*.py')}
+        self.assertEqual(dataset_files, {'CAVE_Dataset.py', 'Harvard_Dataset.py'})
+
+    def test_training_defaults(self):
+        tree = ast.parse((ROOT / 'Train_Cave.py').read_text(encoding='utf-8'))
+        defaults = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'add_argument':
+                if node.args and isinstance(node.args[0], ast.Constant):
+                    for kw in node.keywords:
+                        if kw.arg == 'default' and isinstance(kw.value, ast.Constant):
+                            defaults[node.args[0].value] = kw.value.value
+        self.assertEqual(defaults['--model'], 'gsno')
+        self.assertEqual(defaults['--dim'], 80)
+        self.assertEqual(defaults['--ep_total'], 1000)
+        self.assertEqual(defaults['--seed'], 1)
+        self.assertEqual(defaults['--sf'], 4)
+
+    def test_evaluation_defaults(self):
+        evaluator = importlib.import_module('tools.evaluate_dynamic_model_multiscale')
+        argv = ['eval', '--checkpoint', 'weights.pth', '--data-path', 'data',
+                '--output', 'result.json', '--selected-4x-best-epoch', '555',
+                '--selected-4x-best-psnr', '52.6838439']
+        with patch.object(sys, 'argv', argv):
+            args = evaluator.parse_args()
+        self.assertEqual(args.module, 'model.gsno')
+        self.assertEqual(args.dim, 80)
+        self.assertEqual(args.scales, [4, 8, 16, 32])
 
     def test_registered_modules_exist(self):
         tree = ast.parse((ROOT / 'Train_Cave.py').read_text(encoding='utf-8'))
@@ -76,7 +108,8 @@ class ReleaseTests(unittest.TestCase):
                         self.assertTrue((ROOT / (value.value.replace('.', '/') + '.py')).is_file())
 
     def test_document_links(self):
-        for name in ('README.md', 'third_party/README.md', 'scripts/README.md'):
+        for name in ('README.md', 'third_party/README.md', 'scripts/README.md',
+                     'model/README.md', 'docs/reproduction.md'):
             path = ROOT / name
             for link in re.findall(r'\]\(([^)]+)\)', path.read_text(encoding='utf-8')):
                 if '://' not in link and not link.startswith('#'):
@@ -84,15 +117,17 @@ class ReleaseTests(unittest.TestCase):
 
     def test_license_copies(self):
         license_text = (ROOT / 'third_party/LICENSE_GAUSSIAN_SPLATTING.md').read_bytes()
-        for directory in ('extensions/adaptive3_rasterizer', 'extensions/cell_aware3_rasterizer',
-                          'extensions/reference_aware_rasterizer', 'submodules/diff-srgaussian-rasterization'):
+        for directory in ('extensions/adaptive3_rasterizer',):
             self.assertEqual((ROOT / directory / 'LICENSE.md').read_bytes(), license_text)
+
+    def test_shell_line_endings(self):
+        for path in (ROOT / 'scripts').glob('*.sh'):
+            with self.subTest(script=path.name):
+                self.assertNotIn(b'\r', path.read_bytes())
 
     def test_command_help(self):
         for script in ('Train_Cave.py', 'Train_Harvard.py',
-                       'tools/evaluate_dynamic_model_multiscale.py',
-                       'tools/evaluate_harvard_multiscale.py',
-                       'tools/evaluate_chikusei_multiscale.py'):
+                       'tools/evaluate_dynamic_model_multiscale.py'):
             with self.subTest(script=script):
                 result = subprocess.run([sys.executable, script, '--help'], cwd=ROOT,
                                         capture_output=True, text=True, timeout=60)

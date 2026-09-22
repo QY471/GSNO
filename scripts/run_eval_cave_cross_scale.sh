@@ -9,7 +9,7 @@ GPU="${GPU:-0}"
 OUTPUT="${OUTPUT:-results/cave_cross_scale.json}"
 
 CUDA_VISIBLE_DEVICES="${GPU}" python tools/evaluate_dynamic_model_multiscale.py \
-  --module model.GSFusion_E3_ConstrainedEllipticalGaussian \
+  --module model.gsno \
   --checkpoint "${CHECKPOINT}" \
   --data-path "${DATA_ROOT}/Cave/Test" \
   --scales 4 8 16 32 --dim 80 \

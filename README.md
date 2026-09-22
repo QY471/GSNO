@@ -4,17 +4,9 @@ This repository contains the research code for **GSNO**, a neural-operator
 framework for spatial-spectral fusion of a low-resolution hyperspectral image
 (LR-HSI) and a high-resolution multispectral image (HR-MSI).
 
-GSNO is evaluated under a single-ratio training protocol: the model is trained
-at `4x` and the same frozen parameters are evaluated at `4x`, `8x`, `16x`, and
-`32x`. The paper result reported as `52.68 dB` on CAVE is produced by
-`e3_constrained_elliptical_gaussian`, using the native ADCI path and the CUDA
-Gaussian renderer. `model/gsno.py` exposes this same class as `GSNO` without
-changing its parameters or checkpoint keys.
-
-> **Status.** This is a pre-submission source package. Dataset files and trained
-> weights are not included. The CUDA
-> rasterizer files retain their upstream non-commercial research license; see
-> [`third_party/README.md`](third_party/README.md) before redistribution.
+> Pre-submission version. Prepared datasets and trained weights are not included.
+> See [Reproduction Notes](docs/reproduction.md) for the available experiment
+> metadata and [License](#license) for distribution terms.
 
 ## Abstract
 
@@ -33,8 +25,6 @@ and Harvard show that GSNO trained only at $4\times$ consistently outperforms
 competing methods at unseen fusion ratios from $8\times$ to $32\times$,
 exceeding the second-best method by 2.07 dB in PSNR on CAVE at $32\times$.
 
-Paper: [current manuscript repository](https://github.com/QY471/icassp)
-
 ## Repository Layout
 
 ```text
@@ -42,33 +32,28 @@ GSNO/
 ├── Train_Cave.py                 # shared CAVE/Harvard training entry point
 ├── Train_Harvard.py              # Harvard convenience entry point
 ├── datasets/                     # dataset loaders and degradation protocol
-├── model/                        # GSNO model and controlled variants
-├── extensions/                   # CUDA/Triton acceleration modules
+├── model/gsno.py                  # GSNO model and reconstruction loss
+├── extensions/                   # required CUDA Gaussian rasterizer
 ├── tools/                        # metrics and evaluation utilities
 ├── configs/datasets.yaml         # local dataset path template
-├── scripts/                      # reproducible train/evaluation commands
-├── checkpoints/README.md         # checkpoint release table
-├── requirements.txt              # minimal public dependency list
-├── CITATION.cff                  # machine-readable citation
-└── third_party/                  # provenance and license boundaries
+├── scripts/                      # training and evaluation launchers
+├── checkpoints/                  # checkpoint availability
+├── docs/                         # reproduction notes
+├── tests/                        # CPU regression tests
+├── requirements.txt              # Python dependencies
+├── CITATION.cff                  # citation metadata
+└── third_party/                  # source acknowledgments and licenses
 ```
 
-The formal paper model is registered as
-`e3_constrained_elliptical_gaussian`. In-repository
-experimental variants remain in `model/`; they are not all paper ablations.
-Their existing module paths are retained for checkpoint compatibility. Official baseline
-implementations are intentionally omitted; comparison methods should be obtained
-from their official releases.
-
-The paper's CAVE main result uses this model with `dim=80`, `seed=1`,
-`ep_total=1000`, and `sf=4`. The selected checkpoint is at epoch `555` and
-reports `52.6838439 dB` at `4x` (rounded to `52.68 dB` in the paper).
+This repository contains one model, `model.gsno.GSNO`, for CAVE and Harvard.
+Use `--model gsno` in the trainer. Experimental variants and baseline
+implementations are not included. See [Model](model/README.md) for the code layout.
 
 ## Installation
 
 The paper model uses PyTorch and a compiled CUDA rasterizer. Linux with an
 NVIDIA GPU, a compatible CUDA toolkit (including `nvcc`), and a C++ compiler
-is recommended. Triton is used only by the optional accelerated variants.
+is recommended.
 Install a CUDA-enabled PyTorch build matching your toolkit before proceeding:
 
 ```bash
@@ -128,27 +113,37 @@ or the documented evaluation crop.
 
 ## Training
 
-The CAVE configuration associated with the reported result is:
+Train GSNO on CAVE at `4x`:
 
 ```bash
 python Train_Cave.py \
   --dataset cave \
   --data_path /path/to/Cave/Train \
   --test_data_path /path/to/Cave/Test \
-  --model e3_constrained_elliptical_gaussian \
+  --model gsno \
   --sf 4 --dim 80 --ep_total 1000 --e_every 5 \
   --checkpoint_root Checkpoint_CAVE
 ```
 
-The same shared trainer can run on Harvard (example configuration, not a
-verified reproduction of the Harvard table):
+The recorded CAVE run uses the following configuration:
+
+| Option | Value |
+|---|---:|
+| Training ratio | 4 |
+| Feature dimension | 80 |
+| Seed | 1 |
+| Epochs | 1000 |
+| Evaluation interval | 5 epochs |
+
+For Harvard, use the same trainer with the dataset-specific paths. This is an
+example configuration, not a verified reproduction of the Harvard table:
 
 ```bash
 python Train_Cave.py \
   --dataset harvard \
   --data_path /path/to/Harvard/Train \
   --test_data_path /path/to/Harvard/Test \
-  --model e3_constrained_elliptical_gaussian \
+  --model gsno \
   --sf 4 --dim 80 --ep_total 1000 --e_every 5 \
   --checkpoint_root Checkpoint_Harvard
 ```
@@ -182,18 +177,16 @@ released checkpoint, replace them with the values stored in its run metadata.
 The evaluator reports PSNR, SAM, ERGAS with the fixed reference factor `4`,
 SSIM, and per-image CSV results.
 
-`tools/evaluate_harvard_multiscale.py` is a separate diagnostic using a
-top-left `512 x 512` crop and a required dataset manifest. It does not use the
-training loader's default `1024 x 1024` evaluation crop. The matching manifest
-and checkpoint have not been supplied with this package; the Harvard table is
-not yet independently reproducible from the repository alone.
+Harvard evaluation during training uses the top-left `1024 x 1024` crop.
+The original Harvard checkpoint and its cross-scale evaluation configuration
+are not included; see [Reproduction Notes](docs/reproduction.md#harvard).
 
-## Checkpoints and Results
+## Model Zoo
 
-Trained weights have not been released. See
-[`checkpoints/README.md`](checkpoints/README.md) for availability. The CAVE
-PSNR above is a recorded experiment result, not a fresh reproduction from this
-package. Do not substitute the metadata of that run for a newly trained model.
+Trained weights are not yet available. Release files and checksums will be
+listed in [Checkpoints](checkpoints/README.md). The recorded CAVE checkpoint
+reached `52.6838439 dB` at epoch `555`; this result has not been reproduced
+from the source package. Use each checkpoint's own metadata during evaluation.
 
 ## Tests
 
@@ -223,7 +216,7 @@ third-party distribution rights.
 
 The original GSNO code does not yet have an author-approved distribution
 license. Bundled rasterizers retain the Inria/MPII research-only license.
-AFNO-derived components and EDSR provenance also require author confirmation.
+Redistribution terms for the AFNO-derived components require author confirmation.
 See [`third_party/README.md`](third_party/README.md) before public redistribution.
 
 ## Contact

@@ -9,6 +9,6 @@ CUDA_VISIBLE_DEVICES="${GPU}" python Train_Cave.py \
   --dataset cave \
   --data_path "${DATA_ROOT}/Cave/Train" \
   --test_data_path "${DATA_ROOT}/Cave/Test" \
-  --model e3_constrained_elliptical_gaussian \
+  --model gsno \
   --sf 4 --dim 80 --ep_total "${EPOCHS:-1000}" --e_every 5 \
   --checkpoint_root "${CHECKPOINT_ROOT}"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate one frozen GSFusion checkpoint without touching active training."""
+"""Evaluate a frozen GSNO checkpoint on CAVE at multiple fusion ratios."""
 
 from __future__ import annotations
 
@@ -45,23 +45,15 @@ def stable_compute_sam(im1: np.ndarray, im2: np.ndarray) -> float:
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--module", required=True)
-    parser.add_argument(
-        "--model-kwargs-json",
-        default="{}",
-        help=(
-            "JSON object of extra constructor kwargs, for example "
-            "'{\"fixed_sigma_hr\": 0.34017762541770935}'."
-        ),
-    )
+    parser.add_argument("--module", default="model.gsno", choices=["model.gsno"])
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--data-path", required=True)
-    parser.add_argument("--scales", nargs="+", type=int, default=[8])
+    parser.add_argument("--scales", nargs="+", type=int, default=[4, 8, 16, 32])
     parser.add_argument("--output", required=True)
     parser.add_argument(
         "--dim",
         type=int,
-        default=64,
+        default=80,
         help="Latent channel width used to construct the frozen model.",
     )
     parser.add_argument("--selected-4x-best-epoch", type=int, required=True)
@@ -187,12 +179,7 @@ def evaluate(model, names, loader, scale: int, device: torch.device):
 
 def main():
     args = parse_args()
-    try:
-        model_kwargs = json.loads(args.model_kwargs_json)
-    except json.JSONDecodeError as error:
-        raise ValueError("--model-kwargs-json must be a valid JSON object") from error
-    if not isinstance(model_kwargs, dict):
-        raise ValueError("--model-kwargs-json must decode to a JSON object")
+    model_kwargs = {}
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is required")
     device = torch.device("cuda")
@@ -233,7 +220,7 @@ def main():
         "dim": args.dim,
         "checkpoint_snapshot": str(checkpoint_path),
         "checkpoint_sha256": sha256(checkpoint_path),
-        "selection_rule": "checkpoint selected only by CAVE 4x validation PSNR",
+        "selection_rule": "checkpoint selected by CAVE 4x test PSNR",
         "selected_4x_best_epoch": args.selected_4x_best_epoch,
         "selected_4x_best_psnr": args.selected_4x_best_psnr,
         "frozen_4x_selection_difference": selection_difference,

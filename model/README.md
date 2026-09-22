@@ -1,25 +1,19 @@
-# Models
+# Model
 
-Use `from model.gsno import GSNO` for the model associated with the recorded
-CAVE 52.68 dB result. `GSNO` is an alias of the existing class, not a new wrapper
-network, and does not add prefixes to checkpoint keys.
+`gsno.py` contains the GSNO network used by the recorded CAVE 1000-epoch run.
+There are no alternative model versions in this package.
 
-The shared trainer accepts `--model gsno` or
-`--model e3_constrained_elliptical_gaussian` for this model. The direct class
-named `GSFusion` inside `GSFusion_GSNO.py` is an earlier architecture; that file
-also supplies the ADCI layers and losses used by the paper model.
+```python
+from model.gsno import GSNO
 
-## Main Implementation
+model = GSNO(dim=80, num_bands=31, num_msi=3, adci_layers=3)
+```
 
-| File | Role |
-|---|---|
-| `gsno.py` | Public model and loss exports |
-| `GSFusion_E3_ConstrainedEllipticalGaussian.py` | Elliptical kernels and paper model |
-| `GSFusion_HRFused_Circular_PrimitiveEmbedding.py` | Shared feature extraction and primitive embedding |
-| `GSFusion_GSNO.py` | ADCI layers and reconstruction losses |
+The implementation includes local feature interaction, a fusion backbone,
+elliptical Gaussian integration, and the reconstruction loss. These are
+components of one network, not separate experiment configurations.
 
-The remaining files contain experimental architectures and controls.
-In particular, `ADCICUDAExactContinuous` variants are not interchangeable with
-the native-ADCI paper model. Do not use them to evaluate its checkpoint simply
-because their tensor shapes match. Existing module names are retained to avoid
-breaking experiment configurations and imports.
+The CUDA extension in `extensions/adaptive3_rasterizer/` is required.
+`GSFusion` is an alias for `GSNO`; both names construct the same class.
+Parameter names and initialization order are preserved from the recorded model.
+Load trained weights as a `state_dict` with `strict=True`.
