@@ -60,6 +60,11 @@ class ReleaseTests(unittest.TestCase):
                          [(31, 4, 4), (3, 16, 16), (31, 16, 16), (16, 16, 2)])
         torch.testing.assert_close(sample[0], torch.full_like(sample[0], 0.5))
 
+    def test_training_batch_unpack_accepts_harvard_coordinate(self):
+        from Train_Cave import unpack_dataset_batch
+
+        self.assertEqual(unpack_dataset_batch((1, 2, 3, 4)), (1, 2, 3))
+
     def test_public_model_is_same_class(self):
         public = importlib.import_module('model.gsno')
         self.assertIs(public.GSNO, public.GSFusion)

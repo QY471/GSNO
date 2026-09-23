@@ -165,7 +165,9 @@ def unpack_dataset_batch(batch):
     """Unpack one CAVE or Harvard sample."""
     if len(batch) == 3:
         return batch
-    raise ValueError(f"Expected a 3-item dataset batch, got {len(batch)}")
+    if len(batch) == 4:
+        return batch[:3]
+    raise ValueError(f"Expected a 3- or 4-item dataset batch, got {len(batch)}")
 
 logger = logging.getLogger("LOG")
 logger.setLevel(logging.INFO)
