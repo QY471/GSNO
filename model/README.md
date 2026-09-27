@@ -9,6 +9,10 @@ from model.gsno import GSNO
 model = GSNO(dim=80, num_bands=31, num_msi=3, adci_layers=3)
 ```
 
+The constructor argument `adci_layers` is the code-level compatibility name
+for the paper's Local Kernel Interaction (LKI) stages; it is retained to keep
+the recorded checkpoint parameter layout unchanged.
+
 The implementation includes local feature interaction, a fusion backbone,
 elliptical Gaussian integration, and the reconstruction loss. These are
 components of one network, not separate experiment configurations.

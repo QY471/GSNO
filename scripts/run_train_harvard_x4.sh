@@ -5,8 +5,7 @@ set -euo pipefail
 GPU="${GPU:-0}"
 CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-Checkpoint_Harvard}"
 
-CUDA_VISIBLE_DEVICES="${GPU}" python Train_Cave.py \
-  --dataset harvard \
+CUDA_VISIBLE_DEVICES="${GPU}" python Train_Harvard.py \
   --data_path "${DATA_ROOT}/Harvard/Train" \
   --test_data_path "${DATA_ROOT}/Harvard/Test" \
   --model gsno \
