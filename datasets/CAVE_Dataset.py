@@ -1,44 +1,10 @@
+import random
+
+import numpy as np
+import torch
 import torch.utils.data as tud
-from tools.Utils import *
 
-try:
-    from torch import irfft
-    from torch import rfft
-except ImportError:
-    from torch.fft import irfft2
-    from torch.fft import rfft2
-    def rfft(x, d):
-        t = rfft2(x, dim = (-d))
-        return torch.stack((t.real, t.imag), -1)
-    def irfft(x, d, signal_sizes):
-        return irfft2(torch.complex(x[:,:,0], x[:,:,1]), s = signal_sizes, dim = (-d))
-
-def add_impulse_noise(img, amount=0.10, salt_vs_pepper=0.5):
-    """
-    Input and output tensors have shape [C, H, W].
-    """
-    # assert isinstance(img, torch.Tensor)
-    img_np = img.cpu().numpy()
-    c, h, w = img.shape
-    img_np = np.transpose(img_np, (1, 2, 0))  # HWC
-
-    num_pixels = h * w
-    n_salt = int(amount * num_pixels * salt_vs_pepper)
-    n_pepper = int(amount * num_pixels * (1. - salt_vs_pepper))
-
-    # Select impulse locations.
-    idx = np.random.choice(num_pixels, n_salt + n_pepper, replace=False)
-    rows, cols = np.unravel_index(idx, (h, w))
-    max_v = img_np.max()
-    min_v = img_np.min()
-    # salt
-    img_np[rows[:n_salt], cols[:n_salt], :] = max_v
-    # pepper
-    img_np[rows[n_salt:], cols[n_salt:], :] = min_v
-
-    img_np = np.transpose(img_np, (2, 0, 1))  # Back to CHW.
-    return torch.from_numpy(img_np).type_as(img)
-
+from tools.Utils import para_setting
 
 class cave_dataset(tud.Dataset):
     def __init__(self, opt, HR_HSI, HR_MSI, istrain = True):
