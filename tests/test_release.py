@@ -113,9 +113,9 @@ class ReleaseTests(unittest.TestCase):
                         self.assertTrue((ROOT / (value.value.replace('.', '/') + '.py')).is_file())
 
     def test_document_links(self):
-        for name in ('README.md', 'third_party/README.md', 'scripts/README.md',
-                     'model/README.md'):
-            path = ROOT / name
+        readmes = sorted(ROOT.rglob('README.md'))
+        for path in readmes:
+            name = path.relative_to(ROOT).as_posix()
             for link in re.findall(r'\]\(([^)]+)\)', path.read_text(encoding='utf-8')):
                 if '://' not in link and not link.startswith('#'):
                     self.assertTrue((path.parent / link.split('#')[0]).exists(), (name, link))

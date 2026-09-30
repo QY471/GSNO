@@ -51,6 +51,19 @@ GSNO/
 The package contains one model entry point, `model.gsno.GSNO`. Experimental
 architectures and comparison implementations are not included.
 
+The model can be constructed as follows:
+
+```python
+from model.gsno import GSNO
+
+model = GSNO(dim=80, num_bands=31, num_msi=3, adci_layers=3)
+```
+
+The code-level argument `adci_layers` names the paper's Local Kernel
+Interaction (LKI) stages and is retained to preserve the recorded checkpoint
+parameter layout. `GSFusion` is an alias for `GSNO`; both names construct the
+same class. Load released weights as a `state_dict` with `strict=True`.
+
 ## Installation
 
 The paper model uses PyTorch and a compiled CUDA rasterizer. A compatible
@@ -149,6 +162,9 @@ python Train_Cave.py \
 For Harvard, use `Train_Harvard.py` with the corresponding data root. The
 training script selects `best_model.pth` using PSNR on `--test_data_path` every
 `--e_every` epochs, following the recorded experiment protocol.
+
+The shell wrappers in `scripts/` provide the same CAVE and Harvard commands
+with environment-variable configuration.
 
 ## Useful Commands
 
