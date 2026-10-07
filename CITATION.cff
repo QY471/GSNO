@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+title: "Gaussian Spatial-Spectral Neural Operator"
+message: "If you use GSNO, please cite the accompanying paper."
+type: software
+repository-code: "https://github.com/QY471/GSNO"
+authors:
+  - family-names: Shi
+    given-names: Qinyi
+  - family-names: Zhu
+    given-names: Junwei
+  - family-names: Zhang
+    given-names: Mouyi
+  - family-names: Xu
+    given-names: Honghui
+  - family-names: Zheng
+    given-names: Jianwei
+    affiliation: Zhejiang University of Technology
+keywords:
+  - hyperspectral image fusion
+  - multispectral image fusion
+  - neural operator
+  - cross-scale generalization
+  - Gaussian kernels
+version: 0.1.0-pre
