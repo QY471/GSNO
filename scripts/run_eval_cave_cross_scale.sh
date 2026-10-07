@@ -10,7 +10,7 @@ OUTPUT="${OUTPUT:-results/cave_cross_scale.json}"
 SELECTION_SCALE="${SELECTION_SCALE:-4}"
 read -r -a EVAL_SCALES <<< "${SCALES:-4 8 16 32}"
 
-CUDA_VISIBLE_DEVICES="${GPU}" python tools/evaluate_dynamic_model_multiscale.py \
+CUDA_VISIBLE_DEVICES="${GPU}" python tools/evaluate_gsno_multiscale.py \
   --module model.gsno \
   --checkpoint "${CHECKPOINT}" \
   --dataset cave \

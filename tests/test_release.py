@@ -61,7 +61,7 @@ class ReleaseTests(unittest.TestCase):
         torch.testing.assert_close(sample[0], torch.full_like(sample[0], 0.5))
 
     def test_training_batch_unpack_accepts_harvard_coordinate(self):
-        from Train_Cave import unpack_dataset_batch
+        from train_gsno import unpack_dataset_batch
 
         self.assertEqual(unpack_dataset_batch((1, 2, 3, 4)), (1, 2, 3))
 
@@ -75,6 +75,12 @@ class ReleaseTests(unittest.TestCase):
         class StubRasterizer(torch.nn.Module):
             def __init__(self, channels):
                 super().__init__()
+                self.channels = channels
+
+            def forward(self, opacity, means, std, rho, values,
+                        height, width, *args, **kwargs):
+                return values.new_zeros(values.shape[0], height, width,
+                                        self.channels)
 
         with patch.object(public, '_resolve_adaptive_gaussian_rasterizer',
                           return_value=StubRasterizer):
@@ -96,6 +102,12 @@ class ReleaseTests(unittest.TestCase):
         for key, value in current.items():
             torch.testing.assert_close(restored.state_dict()[key], value)
 
+        model(torch.rand(1, 31, 4, 4), torch.rand(1, 3, 16, 16), 4)
+        stats = model.collect_gsio_stats()
+        self.assertEqual(stats[0]['layer'], 'gsio')
+        self.assertTrue(all(key == 'layer' or key.startswith('gsio_')
+                            for key in stats[0]))
+
     def test_release_scope(self):
         model_files = {p.relative_to(ROOT / 'model').as_posix()
                        for p in (ROOT / 'model').rglob('*.py')}
@@ -104,7 +116,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(dataset_files, {'CAVE_Dataset.py', 'Harvard_Dataset.py'})
 
     def test_training_defaults(self):
-        tree = ast.parse((ROOT / 'Train_Cave.py').read_text(encoding='utf-8'))
+        tree = ast.parse((ROOT / 'train_gsno.py').read_text(encoding='utf-8'))
         defaults = {}
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'add_argument':
@@ -119,7 +131,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(defaults['--sf'], 4)
 
     def test_evaluation_defaults(self):
-        evaluator = importlib.import_module('tools.evaluate_dynamic_model_multiscale')
+        evaluator = importlib.import_module('tools.evaluate_gsno_multiscale')
         argv = ['eval', '--checkpoint', 'weights.pth', '--data-path', 'data',
                 '--output', 'result.json', '--selected-4x-best-epoch', '555',
                 '--selected-4x-best-psnr', '52.6838439']
@@ -134,7 +146,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(args.selected_best_psnr, 52.6838439)
 
     def test_harvard_evaluation_arguments(self):
-        evaluator = importlib.import_module('tools.evaluate_dynamic_model_multiscale')
+        evaluator = importlib.import_module('tools.evaluate_gsno_multiscale')
         argv = ['eval', '--checkpoint', 'weights.pth', '--dataset', 'harvard',
                 '--data-path', 'Harvard/Test', '--output', 'result.json',
                 '--scales', '8', '16', '32', '--selection-scale', '8',
@@ -147,7 +159,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(args.selected_best_epoch, 100)
 
     def test_registered_modules_exist(self):
-        tree = ast.parse((ROOT / 'Train_Cave.py').read_text(encoding='utf-8'))
+        tree = ast.parse((ROOT / 'train_gsno.py').read_text(encoding='utf-8'))
         for node in ast.walk(tree):
             if not isinstance(node, ast.Dict):
                 continue
@@ -161,7 +173,7 @@ class ReleaseTests(unittest.TestCase):
         for path in readmes:
             name = path.relative_to(ROOT).as_posix()
             for link in re.findall(r'\]\(([^)]+)\)', path.read_text(encoding='utf-8')):
-                if '://' not in link and not link.startswith('#'):
+                if '://' not in link and not link.startswith(('#', 'mailto:')):
                     self.assertTrue((path.parent / link.split('#')[0]).exists(), (name, link))
         self.assertTrue((ROOT / 'assets/gsno_framework.png').is_file())
 
@@ -176,7 +188,8 @@ class ReleaseTests(unittest.TestCase):
                 self.assertNotIn(b'\r', path.read_bytes())
 
     def test_command_help(self):
-        for script in ('Train_Cave.py', 'Train_Harvard.py',
+        for script in ('train_gsno.py', 'Train_Cave.py', 'Train_Harvard.py',
+                       'tools/evaluate_gsno_multiscale.py',
                        'tools/evaluate_dynamic_model_multiscale.py'):
             with self.subTest(script=script):
                 result = subprocess.run([sys.executable, script, '--help'], cwd=ROOT,

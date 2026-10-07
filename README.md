@@ -110,8 +110,8 @@ PSNR on the path passed as `--test_data_path`; these scripts use the `Test`
 folder for both model selection and reported evaluation.
 
 The shell scripts accept `GPU`, `EPOCHS`, and `CHECKPOINT_ROOT` environment
-variables. The Python entry points expose the remaining options through
-`python Train_Cave.py --help` and `python Train_Harvard.py --help`.
+variables. The shared Python entry point exposes the remaining options through
+`python train_gsno.py --help`.
 
 ## Evaluation
 
@@ -149,9 +149,13 @@ checkpoint availability.
 | `model/gsno.py` | GSNO model and reconstruction loss |
 | `datasets/` | CAVE and Harvard loaders |
 | `extensions/adaptive3_rasterizer/` | CUDA Gaussian rasterizer |
-| `Train_Cave.py`, `Train_Harvard.py` | Training entry points |
-| `tools/evaluate_dynamic_model_multiscale.py` | Frozen-checkpoint evaluation |
+| `train_gsno.py` | Training entry point for CAVE and Harvard |
+| `tools/evaluate_gsno_multiscale.py` | Frozen-checkpoint evaluation |
 | `scripts/` | Dataset and ratio-specific commands |
+
+The former `Train_Cave.py`, `Train_Harvard.py`, and
+`tools/evaluate_dynamic_model_multiscale.py` paths remain as compatibility
+entry points for existing commands.
 
 The paper's two main modules are named `LKI` and `GSIO` in `model/gsno.py`.
 The model class is `model.gsno.GSNO`, with `lki_layers` controlling the LKI

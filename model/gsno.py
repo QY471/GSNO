@@ -20,9 +20,10 @@ import torch.nn.functional as F
 def _resolve_adaptive_gaussian_rasterizer():
     """Load the isolated adaptive-window extension bundled for this model."""
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    extension_root = os.environ.get(
-        "GSFUSION_ADAPTIVE_RASTER_ROOT",
-        os.path.join(repo_root, "extensions", "adaptive3_rasterizer"),
+    extension_root = (
+        os.environ.get("GSNO_ADAPTIVE_RASTER_ROOT")
+        or os.environ.get("GSFUSION_ADAPTIVE_RASTER_ROOT")  # Legacy override.
+        or os.path.join(repo_root, "extensions", "adaptive3_rasterizer")
     )
     if extension_root not in sys.path:
         sys.path.insert(0, extension_root)
@@ -222,22 +223,22 @@ class GaussianResidual(nn.Module):
             value_abs = delta_value.detach().abs().mean()
             delta_abs = gaussian_delta.detach().abs().mean()
             self.last_stats = {
-                "hrgs_opacity_mean": float(opacity.detach().mean()),
-                "hrgs_opacity_std": float(opacity.detach().std()),
-                "hrgs_std_x_mean_px": float(std_px[..., 0].detach().mean()),
-                "hrgs_std_y_mean_px": float(std_px[..., 1].detach().mean()),
-                "hrgs_rho_abs_mean": float(rho.detach().abs().mean()),
-                "hrgs_offset_abs_mean_px": float(offset_px.detach().abs().mean()),
-                "hrgs_offset_max_abs_px": float(offset_px.detach().abs().max()),
-                "hrgs_density_min": float(density.detach().min()),
-                "hrgs_density_mean": float(density.detach().mean()),
-                "hrgs_value_abs_mean": float(value_abs),
-                "hrgs_delta_abs_mean": float(delta_abs),
-                "hrgs_input_abs_mean": float(x_abs),
-                "hrgs_delta_input_ratio": float(delta_abs / (x_abs + 1e-8)),
-                "hrgs_raster_ratio": float(raster_ratio),
-                "hrgs_adaptive_window": 1.0,
-                "hrgs_sigma_radius": float(self.sigma_radius),
+                "gsio_opacity_mean": float(opacity.detach().mean()),
+                "gsio_opacity_std": float(opacity.detach().std()),
+                "gsio_std_x_mean_px": float(std_px[..., 0].detach().mean()),
+                "gsio_std_y_mean_px": float(std_px[..., 1].detach().mean()),
+                "gsio_rho_abs_mean": float(rho.detach().abs().mean()),
+                "gsio_offset_abs_mean_px": float(offset_px.detach().abs().mean()),
+                "gsio_offset_max_abs_px": float(offset_px.detach().abs().max()),
+                "gsio_density_min": float(density.detach().min()),
+                "gsio_density_mean": float(density.detach().mean()),
+                "gsio_value_abs_mean": float(value_abs),
+                "gsio_delta_abs_mean": float(delta_abs),
+                "gsio_input_abs_mean": float(x_abs),
+                "gsio_delta_input_ratio": float(delta_abs / (x_abs + 1e-8)),
+                "gsio_raster_ratio": float(raster_ratio),
+                "gsio_adaptive_window": 1.0,
+                "gsio_sigma_radius": float(self.sigma_radius),
             }
         return out
 
@@ -284,10 +285,8 @@ class FusionBackbone(nn.Module):
         torch.set_rng_state(extra_rng_state)
 
         self.arch_summary = (
-            "GSNO: F_H=upsampled HSI latent; F_M=MSI latent; "
-            "F=original fusion(concat(F_H,F_M)); E0=Conv1x1(concat); "
-            "E_g=E0+Conv1x1(GELU(Conv1x1(E0))); primitive heads read E_g; "
-            "circular normalized delta is added to F; original decoder"
+            "Two-stream LKI feature extraction and fusion with a "
+            "density-normalized circular Gaussian residual."
         )
         self.reset_custom_init()
 
@@ -298,9 +297,11 @@ class FusionBackbone(nn.Module):
         nn.init.zeros_(self.primitive_residual[-1].weight)
         nn.init.zeros_(self.primitive_residual[-1].bias)
 
-    def collect_gs_stats(self) -> List[Dict[str, float]]:
+    def collect_gsio_stats(self) -> List[Dict[str, float]]:
         stats = self.gsio.last_stats
-        return [] if stats is None else [{"layer": "hr_gaussian", **stats}]
+        return [] if stats is None else [{"layer": "gsio", **stats}]
+
+    collect_gs_stats = collect_gsio_stats  # Legacy diagnostics API.
 
     def load_state_dict(self, state_dict, strict=True, assign=False):
         return super().load_state_dict(
@@ -459,32 +460,32 @@ class GSIO(GaussianResidual):
             value_abs = delta_value.detach().abs().mean()
             delta_abs = gaussian_delta.detach().abs().mean()
             self.last_stats = {
-                "hrgs_opacity_mean": float(opacity.detach().mean()),
-                "hrgs_opacity_std": float(opacity.detach().std()),
-                "hrgs_base_sigma_mean_px": float(base_sigma.detach().mean()),
-                "hrgs_axis_major_mean_px": float(axis_major.detach().mean()),
-                "hrgs_axis_minor_mean_px": float(axis_minor.detach().mean()),
-                "hrgs_axis_ratio_mean": float(axis_ratio.detach().mean()),
-                "hrgs_axis_ratio_max": float(axis_ratio.detach().max()),
-                "hrgs_log_stretch_abs_mean": float(log_stretch.detach().abs().mean()),
-                "hrgs_theta_abs_mean_deg": float(
+                "gsio_opacity_mean": float(opacity.detach().mean()),
+                "gsio_opacity_std": float(opacity.detach().std()),
+                "gsio_base_sigma_mean_px": float(base_sigma.detach().mean()),
+                "gsio_axis_major_mean_px": float(axis_major.detach().mean()),
+                "gsio_axis_minor_mean_px": float(axis_minor.detach().mean()),
+                "gsio_axis_ratio_mean": float(axis_ratio.detach().mean()),
+                "gsio_axis_ratio_max": float(axis_ratio.detach().max()),
+                "gsio_log_stretch_abs_mean": float(log_stretch.detach().abs().mean()),
+                "gsio_theta_abs_mean_deg": float(
                     theta.detach().abs().mean() * (180.0 / math.pi)
                 ),
-                "hrgs_std_x_mean_px": float(std_x.detach().mean()),
-                "hrgs_std_y_mean_px": float(std_y.detach().mean()),
-                "hrgs_rho_abs_mean": float(rho.detach().abs().mean()),
-                "hrgs_offset_abs_mean_px": float(offset_px.detach().abs().mean()),
-                "hrgs_offset_max_abs_px": float(offset_px.detach().abs().max()),
-                "hrgs_density_min": float(density.detach().min()),
-                "hrgs_density_mean": float(density.detach().mean()),
-                "hrgs_value_abs_mean": float(value_abs),
-                "hrgs_delta_abs_mean": float(delta_abs),
-                "hrgs_input_abs_mean": float(x_abs),
-                "hrgs_delta_input_ratio": float(delta_abs / (x_abs + 1e-8)),
-                "hrgs_raster_ratio": float(raster_ratio),
-                "hrgs_adaptive_window": 1.0,
-                "hrgs_sigma_radius": float(self.sigma_radius),
-                "hrgs_max_axis_ratio_limit": float(self.max_axis_ratio),
+                "gsio_std_x_mean_px": float(std_x.detach().mean()),
+                "gsio_std_y_mean_px": float(std_y.detach().mean()),
+                "gsio_rho_abs_mean": float(rho.detach().abs().mean()),
+                "gsio_offset_abs_mean_px": float(offset_px.detach().abs().mean()),
+                "gsio_offset_max_abs_px": float(offset_px.detach().abs().max()),
+                "gsio_density_min": float(density.detach().min()),
+                "gsio_density_mean": float(density.detach().mean()),
+                "gsio_value_abs_mean": float(value_abs),
+                "gsio_delta_abs_mean": float(delta_abs),
+                "gsio_input_abs_mean": float(x_abs),
+                "gsio_delta_input_ratio": float(delta_abs / (x_abs + 1e-8)),
+                "gsio_raster_ratio": float(raster_ratio),
+                "gsio_adaptive_window": 1.0,
+                "gsio_sigma_radius": float(self.sigma_radius),
+                "gsio_max_axis_ratio_limit": float(self.max_axis_ratio),
             }
         return out
 
@@ -523,10 +524,9 @@ class GSNO(FusionBackbone):
         torch.set_rng_state(rng_state)
 
         self.arch_summary = (
-            "GSNO constrained elliptical Gaussian: DIM-configurable LKI and "
-            "primitive embedding unchanged; fixed HR-pixel center; bounded "
-            "area-preserving principal axes with learned orientation; "
-            "axis ratio <= 2; density-normalized adaptive-3sigma scatter"
+            "GSNO: LKI extracts features on the LR-HSI and HR-MSI grids; "
+            "GSIO integrates anisotropic Gaussian responses on the HR grid "
+            "before residual HSI reconstruction."
         )
         self.reset_custom_init()
 

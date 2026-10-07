@@ -5,7 +5,7 @@ set -euo pipefail
 GPU="${GPU:-0}"
 CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-Checkpoint_CAVE}"
 
-CUDA_VISIBLE_DEVICES="${GPU}" python Train_Cave.py \
+CUDA_VISIBLE_DEVICES="${GPU}" python train_gsno.py \
   --dataset cave \
   --data_path "${DATA_ROOT}/Cave/Train" \
   --test_data_path "${DATA_ROOT}/Cave/Test" \
