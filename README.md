@@ -153,9 +153,12 @@ checkpoint availability.
 | `tools/evaluate_dynamic_model_multiscale.py` | Frozen-checkpoint evaluation |
 | `scripts/` | Dataset and ratio-specific commands |
 
-The model class is `model.gsno.GSNO`; `GSFusion` is an equivalent alias kept
-for checkpoint compatibility. Its `adci_layers` constructor argument denotes
-the paper's LKI stages. The evaluator loads model weights with `strict=True`.
+The paper's two main modules are named `LKI` and `GSIO` in `model/gsno.py`.
+The model class is `model.gsno.GSNO`, with `lki_layers` controlling the LKI
+depth. `GSFusion` and the former `adci_layers` argument remain available for
+older callers. Previously saved weights with `adci_*` and `gaussian_refine.*`
+keys are mapped to the new names when loaded; evaluation still uses
+`strict=True`.
 
 ## Checks
 

@@ -24,6 +24,7 @@ from datasets.Harvard_Dataset import (
     harvard_dataset,
     prepare_data_harvard as load_harvard_arrays,
 )
+from model.gsno import remap_legacy_state_dict
 
 from tools.Utils import (
     cal_psnr,
@@ -77,10 +78,10 @@ def load_matching_initialization(model, checkpoint_path):
         else None
     )
     state_dict = payload.get("state_dict", payload) if isinstance(payload, dict) else payload
-    state_dict = {
+    state_dict = remap_legacy_state_dict({
         key.removeprefix("module."): value
         for key, value in state_dict.items()
-    }
+    })
     target_state = model.state_dict()
     unexpected = [key for key in state_dict if key not in target_state]
     mismatched = [
@@ -190,13 +191,13 @@ MODEL_SPECS = {
             "dim": opt.dim,
             "num_bands": opt.num_bands,
             "num_msi": opt.num_msi,
-            "adci_layers": 3,
+            "lki_layers": 3,
             "max_axis_ratio": opt.elliptical_max_axis_ratio,
         },
         "init_config": {
             "custom_reset": True,
             "allowed_model_only_prefixes": (
-                "gaussian_refine.anisotropy_head.",
+                "gsio.anisotropy_head.",
             ),
         },
     },
@@ -640,7 +641,7 @@ if __name__ == "__main__":
         ckpt = torch.load(resume_path, map_location='cpu')
         if isinstance(ckpt, dict):
             state_dict = ckpt.get('state_dict', ckpt)
-            model.load_state_dict(state_dict, strict=False)
+            model.load_state_dict(remap_legacy_state_dict(state_dict), strict=False)
         else:
             model = ckpt
 

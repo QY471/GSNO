@@ -69,6 +69,33 @@ class ReleaseTests(unittest.TestCase):
         public = importlib.import_module('model.gsno')
         self.assertIs(public.GSNO, public.GSFusion)
 
+    def test_paper_module_names_load_legacy_weights(self):
+        public = importlib.import_module('model.gsno')
+
+        class StubRasterizer(torch.nn.Module):
+            def __init__(self, channels):
+                super().__init__()
+
+        with patch.object(public, '_resolve_adaptive_gaussian_rasterizer',
+                          return_value=StubRasterizer):
+            model = public.GSNO(dim=4, lki_layers=2)
+            restored = public.GSNO(dim=4, adci_layers=2)
+
+        self.assertIsInstance(model.lki_hsi_layers[0], public.LKI)
+        self.assertIsInstance(model.gsio, public.GSIO)
+        current = model.state_dict()
+        self.assertTrue(any(key.startswith('lki_hsi_layers.') for key in current))
+        self.assertTrue(any(key.startswith('gsio.') for key in current))
+        legacy = {
+            key.replace('lki_hsi_layers.', 'adci_hsi_layers.')
+               .replace('lki_msi_layers.', 'adci_msi_layers.')
+               .replace('gsio.', 'gaussian_refine.'): value
+            for key, value in current.items()
+        }
+        restored.load_state_dict(legacy, strict=True)
+        for key, value in current.items():
+            torch.testing.assert_close(restored.state_dict()[key], value)
+
     def test_release_scope(self):
         model_files = {p.relative_to(ROOT / 'model').as_posix()
                        for p in (ROOT / 'model').rglob('*.py')}

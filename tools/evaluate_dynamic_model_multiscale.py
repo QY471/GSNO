@@ -98,8 +98,8 @@ def load_model(
         "num_msi": 3,
         **model_kwargs,
     }
-    constructor_kwargs.setdefault("adci_layers", 3)
-    model = module.GSFusion(**constructor_kwargs)
+    constructor_kwargs.setdefault("lki_layers", 3)
+    model = module.GSNO(**constructor_kwargs)
     payload = torch.load(checkpoint, map_location="cpu")
     if isinstance(payload, dict):
         for key in ("state_dict", "model_state_dict", "model", "net"):

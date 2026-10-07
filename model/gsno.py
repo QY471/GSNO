@@ -1,6 +1,7 @@
 """Gaussian Spatial-Spectral Neural Operator.
 
-The ADCI implementation is adapted from AFNO; see third_party/README.md.
+The local-interaction implementation is adapted from AFNO; see
+third_party/README.md for provenance.
 """
 
 from __future__ import annotations
@@ -8,6 +9,7 @@ from __future__ import annotations
 import math
 import os
 import sys
+from collections import OrderedDict
 from typing import Dict, List, Optional
 
 import torch
@@ -43,7 +45,9 @@ class LayerNorm(nn.Module):
         return self.weight * out + self.bias
 
 
-class ADCI(nn.Module):
+class LKI(nn.Module):
+    """Local Kernel Interaction between center and neighboring features."""
+
     def __init__(self, in_channels, mlp_hidden_dim):
         super().__init__()
         self.qkv_conv = nn.Conv2d(in_channels, in_channels * 3, kernel_size=1, bias=False)
@@ -76,6 +80,33 @@ class ADCI(nn.Module):
         weighted_v = weighted_v.permute(0, 3, 1, 2).contiguous()
 
         return weighted_v + self.gate(x)
+
+
+_LEGACY_MODULE_NAMES = {
+    "adci_hsi_layers": "lki_hsi_layers",
+    "adci_msi_layers": "lki_msi_layers",
+    "gaussian_refine": "gsio",
+}
+
+
+def _rename_legacy_state_key(key: str) -> str:
+    return ".".join(_LEGACY_MODULE_NAMES.get(part, part) for part in key.split("."))
+
+
+def remap_legacy_state_dict(state_dict):
+    """Accept checkpoints saved before the public LKI/GSIO module names."""
+    remapped = OrderedDict()
+    for key, value in state_dict.items():
+        new_key = _rename_legacy_state_key(key)
+        if new_key in remapped:
+            raise ValueError(f"Duplicate model parameter after renaming: {new_key}")
+        remapped[new_key] = value
+    if hasattr(state_dict, "_metadata"):
+        remapped._metadata = OrderedDict(
+            (_rename_legacy_state_key(key), value)
+            for key, value in state_dict._metadata.items()
+        )
+    return remapped
 
 
 class GaussianResidual(nn.Module):
@@ -219,7 +250,7 @@ class FusionBackbone(nn.Module):
         dim: int = 64,
         num_bands: int = 31,
         num_msi: int = 3,
-        adci_layers: int = 3,
+        lki_layers: int = 3,
         **_: object,
     ) -> None:
         super().__init__()
@@ -228,18 +259,18 @@ class FusionBackbone(nn.Module):
 
         self.shallow_encoder1 = nn.Conv2d(num_bands, dim, 1)
         self.shallow_encoder2 = nn.Conv2d(num_msi, dim, 1)
-        self.adci_hsi_layers = nn.ModuleList(
-            [ADCI(dim, dim) for _ in range(adci_layers)]
+        self.lki_hsi_layers = nn.ModuleList(
+            [LKI(dim, dim) for _ in range(lki_layers)]
         )
-        self.adci_msi_layers = nn.ModuleList(
-            [ADCI(dim, dim) for _ in range(adci_layers)]
+        self.lki_msi_layers = nn.ModuleList(
+            [LKI(dim, dim) for _ in range(lki_layers)]
         )
         self.conv0 = nn.Sequential(
             nn.Conv2d(2 * dim, dim, 1),
             nn.GELU(),
             nn.Conv2d(dim, dim, 1),
         )
-        self.gaussian_refine = GaussianResidual(dim)
+        self.gsio = GaussianResidual(dim)
         self.fc1 = nn.Conv2d(dim, dim, 1)
         self.fc2 = nn.Conv2d(dim, num_bands, 1)
         # Preserve the RNG sequence used by the training initialization.
@@ -263,13 +294,18 @@ class FusionBackbone(nn.Module):
     def reset_custom_init(self) -> None:
         nn.init.zeros_(self.fc2.weight)
         nn.init.zeros_(self.fc2.bias)
-        self.gaussian_refine.reset_residual_init()
+        self.gsio.reset_residual_init()
         nn.init.zeros_(self.primitive_residual[-1].weight)
         nn.init.zeros_(self.primitive_residual[-1].bias)
 
     def collect_gs_stats(self) -> List[Dict[str, float]]:
-        stats = self.gaussian_refine.last_stats
+        stats = self.gsio.last_stats
         return [] if stats is None else [{"layer": "hr_gaussian", **stats}]
+
+    def load_state_dict(self, state_dict, strict=True, assign=False):
+        return super().load_state_dict(
+            remap_legacy_state_dict(state_dict), strict=strict, assign=assign
+        )
 
     def forward(self, lr_hsi: torch.Tensor, hr_msi: torch.Tensor, sf=None):
         del sf
@@ -280,9 +316,9 @@ class FusionBackbone(nn.Module):
 
         f_hsi = self.shallow_encoder1(lr_hsi)
         f_msi = self.shallow_encoder2(hr_msi)
-        for layer in self.adci_hsi_layers:
+        for layer in self.lki_hsi_layers:
             f_hsi = layer(f_hsi)
-        for layer in self.adci_msi_layers:
+        for layer in self.lki_msi_layers:
             f_msi = layer(f_msi)
 
         F_H = F.interpolate(
@@ -293,15 +329,15 @@ class FusionBackbone(nn.Module):
         F_fused = self.conv0(joint)
         E0 = self.primitive_input(joint)
         E_g = E0 + self.primitive_residual(E0)
-        primitive_with_delta = self.gaussian_refine(E_g)
+        primitive_with_delta = self.gsio(E_g)
         gaussian_delta = primitive_with_delta - E_g
         refined = F_fused + gaussian_delta
         residual = self.fc2(F.gelu(self.fc1(refined)))
         return base + residual
 
 
-class EllipticalGaussianResidual(GaussianResidual):
-    """Gaussian residual with bounded anisotropy and learned orientation."""
+class GSIO(GaussianResidual):
+    """Gaussian Spatial Integral Operator with learned kernel orientation."""
 
     def __init__(
         self,
@@ -461,28 +497,33 @@ class GSNO(FusionBackbone):
         dim: int = 64,
         num_bands: int = 31,
         num_msi: int = 3,
-        adci_layers: int = 3,
+        lki_layers: Optional[int] = None,
+        adci_layers: Optional[int] = None,
         max_axis_ratio: float = 2.0,
         **kwargs: object,
     ) -> None:
+        if lki_layers is None:
+            lki_layers = 3 if adci_layers is None else adci_layers
+        elif adci_layers is not None and lki_layers != adci_layers:
+            raise ValueError("lki_layers and legacy adci_layers disagree")
         super().__init__(
             dim=dim,
             num_bands=num_bands,
             num_msi=num_msi,
-            adci_layers=adci_layers,
+            lki_layers=lki_layers,
             **kwargs,
         )
 
         # Preserve the RNG sequence for subsequent layer initialization.
         rng_state = torch.get_rng_state()
-        self.gaussian_refine = EllipticalGaussianResidual(
+        self.gsio = GSIO(
             dim=dim,
             max_axis_ratio=max_axis_ratio,
         )
         torch.set_rng_state(rng_state)
 
         self.arch_summary = (
-            "GSNO constrained elliptical Gaussian: DIM-configurable ADCI and "
+            "GSNO constrained elliptical Gaussian: DIM-configurable LKI and "
             "primitive embedding unchanged; fixed HR-pixel center; bounded "
             "area-preserving principal axes with learned orientation; "
             "axis ratio <= 2; density-normalized adaptive-3sigma scatter"
@@ -505,4 +546,7 @@ def compute_loss(pred, gt, epoch, sam_warmup_epochs=5, sam_weight=0.1):
 
 GSFusion = GSNO
 
-__all__ = ["GSNO", "GSFusion", "compute_loss", "sam_loss"]
+__all__ = [
+    "GSNO", "GSFusion", "LKI", "GSIO", "compute_loss", "sam_loss",
+    "remap_legacy_state_dict",
+]
