@@ -167,6 +167,8 @@ data root, and recorded `BEST_EPOCH`/`BEST_PSNR`. For a model selected at `8x`,
 set `SELECTION_SCALE=8` and `SCALES="8 16 32"` for either script. The selected
 scale must be among the evaluated scales. Harvard evaluation uses the top-left
 `1024 x 1024` crop implemented by its dataset loader.
+The evaluator records the supplied epoch as metadata; the checkpoint file does
+not itself encode an epoch that can be independently checked.
 
 ## Training
 
@@ -198,6 +200,10 @@ split, so the same split is used for model selection and reported evaluation.
 
 The shell wrappers in `scripts/` provide the same CAVE and Harvard commands
 with environment-variable configuration.
+For separately trained `8x` comparisons, run the same training entry point
+with `--sf 8` and a separate `--checkpoint_root`, then evaluate that checkpoint
+with `SELECTION_SCALE=8`. The `8x`-trained comparison requires that separate
+checkpoint.
 
 ## Useful Commands
 
