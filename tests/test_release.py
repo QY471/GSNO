@@ -16,7 +16,7 @@ import torch
 
 from datasets.CAVE_Dataset import cave_dataset
 from datasets.Harvard_Dataset import harvard_dataset
-from tools.Utils import para_setting
+from tools.Utils import compute_sam, para_setting
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +33,12 @@ class ReleaseTests(unittest.TestCase):
                 padded = np.roll(padded, (-scale // 2, -scale // 2), axis=(0, 1))
                 np.testing.assert_allclose(otf, np.fft.fft2(padded), atol=1e-12)
                 np.testing.assert_allclose(adjoint, np.conj(otf), atol=1e-12)
+
+    def test_sam_is_finite_for_nearly_parallel_vectors(self):
+        image = np.ones((2, 2, 3), dtype=np.float32)
+        perturbed = image.copy()
+        perturbed[0, 0, 0] = np.nextafter(1.0, 2.0)
+        self.assertTrue(np.isfinite(compute_sam(image, perturbed)))
 
     def test_degradation_shapes_and_sampling_phase(self):
         image = torch.rand(1, 3, 64, 64, generator=torch.Generator().manual_seed(1))

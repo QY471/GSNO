@@ -54,7 +54,8 @@ def compute_sam(im1: np.ndarray, im2: np.ndarray) -> float:
     im2 = np.reshape(im2, (-1, num_spectral))
     numerator = np.sum(im1 * im2, axis=1)
     denominator = np.linalg.norm(im1, axis=1) * np.linalg.norm(im2, axis=1)
-    angles = np.rad2deg(np.arccos(numerator / (denominator + 1e-7)))
+    cosine = numerator / (denominator + 1e-7)
+    angles = np.rad2deg(np.arccos(np.clip(cosine, -1.0, 1.0)))
     return float(np.mean(angles))
 
 
