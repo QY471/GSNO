@@ -19,11 +19,11 @@ redistributing these sources. These components are not MIT-licensed.
 
 ## Fusion Components and Data Protocol
 
-The LKI implementation is adapted from the ADCI local-interaction component
-in the AFNO code supplied to this project. The Harvard data protocol was also
-adapted from that code. Renaming the public modules does not change this
-provenance. The exact upstream revision and redistribution terms for those
-supplied sources still need author confirmation.
+The LKI implementation is adapted from the local-interaction component in the
+AFNO code supplied to this project. The Harvard data protocol was also adapted
+from that code. The public module names follow the GSNO paper. The exact
+upstream revision and redistribution terms for those supplied sources still
+need author confirmation.
 
 ## Dependencies
 

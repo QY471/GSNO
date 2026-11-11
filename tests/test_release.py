@@ -71,11 +71,13 @@ class ReleaseTests(unittest.TestCase):
 
         self.assertEqual(unpack_dataset_batch((1, 2, 3, 4)), (1, 2, 3))
 
-    def test_public_model_is_same_class(self):
+    def test_public_model_exports_paper_names(self):
         public = importlib.import_module('model.gsno')
-        self.assertIs(public.GSNO, public.GSFusion)
+        self.assertEqual(public.GSNO.__name__, 'GSNO')
+        self.assertEqual(public.LKI.__name__, 'LKI')
+        self.assertEqual(public.GSIO.__name__, 'GSIO')
 
-    def test_paper_module_names_load_legacy_weights(self):
+    def test_paper_module_names_are_used_in_state_dict(self):
         public = importlib.import_module('model.gsno')
 
         class StubRasterizer(torch.nn.Module):
@@ -91,22 +93,12 @@ class ReleaseTests(unittest.TestCase):
         with patch.object(public, '_resolve_adaptive_gaussian_rasterizer',
                           return_value=StubRasterizer):
             model = public.GSNO(dim=4, lki_layers=2)
-            restored = public.GSNO(dim=4, adci_layers=2)
 
         self.assertIsInstance(model.lki_hsi_layers[0], public.LKI)
         self.assertIsInstance(model.gsio, public.GSIO)
         current = model.state_dict()
         self.assertTrue(any(key.startswith('lki_hsi_layers.') for key in current))
         self.assertTrue(any(key.startswith('gsio.') for key in current))
-        legacy = {
-            key.replace('lki_hsi_layers.', 'adci_hsi_layers.')
-               .replace('lki_msi_layers.', 'adci_msi_layers.')
-               .replace('gsio.', 'gaussian_refine.'): value
-            for key, value in current.items()
-        }
-        restored.load_state_dict(legacy, strict=True)
-        for key, value in current.items():
-            torch.testing.assert_close(restored.state_dict()[key], value)
 
         model(torch.rand(1, 31, 4, 4), torch.rand(1, 3, 16, 16), 4)
         stats = model.collect_gsio_stats()
@@ -194,9 +186,7 @@ class ReleaseTests(unittest.TestCase):
                 self.assertNotIn(b'\r', path.read_bytes())
 
     def test_command_help(self):
-        for script in ('train_gsno.py', 'Train_Cave.py', 'Train_Harvard.py',
-                       'tools/evaluate_gsno_multiscale.py',
-                       'tools/evaluate_dynamic_model_multiscale.py'):
+        for script in ('train_gsno.py', 'tools/evaluate_gsno_multiscale.py'):
             with self.subTest(script=script):
                 result = subprocess.run([sys.executable, script, '--help'], cwd=ROOT,
                                         capture_output=True, text=True, timeout=60)

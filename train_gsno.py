@@ -24,8 +24,6 @@ from datasets.Harvard_Dataset import (
     harvard_dataset,
     prepare_data_harvard as load_harvard_arrays,
 )
-from model.gsno import remap_legacy_state_dict
-
 from tools.Utils import (
     cal_psnr,
     compute_ergas,
@@ -78,10 +76,10 @@ def load_matching_initialization(model, checkpoint_path):
         else None
     )
     state_dict = payload.get("state_dict", payload) if isinstance(payload, dict) else payload
-    state_dict = remap_legacy_state_dict({
+    state_dict = {
         key.removeprefix("module."): value
         for key, value in state_dict.items()
-    })
+    }
     target_state = model.state_dict()
     unexpected = [key for key in state_dict if key not in target_state]
     mismatched = [
@@ -247,8 +245,6 @@ def setup_run_context(opt):
     env_keys = [
         spec.get("run_env"),
         default_run_env_name(opt.model),
-        "GSFUSION_GSNO_RUN_NAME",  # Legacy model-specific override.
-        "GSFUSION_RUN_NAME",
     ]
     env_run_name = None
     for env_key in env_keys:
@@ -643,7 +639,11 @@ if __name__ == "__main__":
         ckpt = torch.load(resume_path, map_location='cpu')
         if isinstance(ckpt, dict):
             state_dict = ckpt.get('state_dict', ckpt)
-            model.load_state_dict(remap_legacy_state_dict(state_dict), strict=False)
+            state_dict = {
+                key.removeprefix("module."): value
+                for key, value in state_dict.items()
+            }
+            model.load_state_dict(state_dict, strict=False)
         else:
             model = ckpt
 

@@ -92,24 +92,25 @@ approximately 12.3 GiB for its float32 HSI and MSI arrays.
 
 ## Training
 
-Set `DATA_ROOT` to the directory containing `Cave/` and `Harvard/`, then run
-the script for the dataset and training ratio you need:
+Set `DATA_ROOT` to the directory containing `Cave/` and `Harvard/`, then select
+the dataset and training ratio with the shared training entry point:
 
 ```bash
-DATA_ROOT=/path/to/data bash scripts/run_train_cave_x4.sh
-DATA_ROOT=/path/to/data bash scripts/run_train_harvard_x4.sh
-DATA_ROOT=/path/to/data bash scripts/run_train_cave_x8.sh
-DATA_ROOT=/path/to/data bash scripts/run_train_harvard_x8.sh
+DATA_ROOT=/path/to/data DATASET=cave SCALE=4 bash scripts/run_train_gsno.sh
+DATA_ROOT=/path/to/data DATASET=harvard SCALE=4 bash scripts/run_train_gsno.sh
+DATA_ROOT=/path/to/data DATASET=cave SCALE=8 bash scripts/run_train_gsno.sh
+DATA_ROOT=/path/to/data DATASET=harvard SCALE=8 bash scripts/run_train_gsno.sh
 ```
 
-Each script trains a separate model. The defaults are 64-pixel HR patches,
+The shared script trains one model for the selected dataset and ratio. The
+defaults are 64-pixel HR patches,
 batch size 32, latent width 80, seed 1, and 1,000 epochs. The `4x` CAVE run,
 for example, writes its best weights and log to
 `Checkpoint_CAVE/GSNO_CAVE_x4/`. The training code selects `best_model.pth` by
 PSNR on the path passed as `--test_data_path`; these scripts use the `Test`
 folder for both model selection and reported evaluation.
 
-The shell scripts accept `GPU`, `EPOCHS`, and `CHECKPOINT_ROOT` environment
+The training script accepts `GPU`, `EPOCHS`, and `CHECKPOINT_ROOT` environment
 variables. The shared Python entry point exposes the remaining options through
 `python train_gsno.py --help`.
 
@@ -126,11 +127,12 @@ export DATA_ROOT=/path/to/data
 export CHECKPOINT=Checkpoint_CAVE/GSNO_CAVE_x4/best_model.pth
 export BEST_EPOCH=YOUR_BEST_EPOCH
 export BEST_PSNR=YOUR_BEST_PSNR
-bash scripts/run_eval_cave_cross_scale.sh
+export DATASET=cave
+bash scripts/run_eval_gsno.sh
 ```
 
-Use `scripts/run_eval_harvard_cross_scale.sh` and the corresponding Harvard
-checkpoint for Harvard. Both scripts evaluate `4x`, `8x`, `16x`, and `32x` by
+Set `DATASET=harvard` and use the corresponding Harvard checkpoint for
+Harvard. The evaluation script measures `4x`, `8x`, `16x`, and `32x` by
 default. To evaluate a separately trained `8x` model at its training ratio,
 set `SELECTION_SCALE=8` and `SCALES="8"`. The recorded best PSNR must belong
 to the checkpoint being evaluated; the script checks it against the measured
@@ -151,18 +153,13 @@ checkpoint availability.
 | `extensions/adaptive3_rasterizer/` | CUDA Gaussian rasterizer |
 | `train_gsno.py` | Training entry point for CAVE and Harvard |
 | `tools/evaluate_gsno_multiscale.py` | Frozen-checkpoint evaluation |
-| `scripts/` | Dataset and ratio-specific commands |
-
-The former `Train_Cave.py`, `Train_Harvard.py`, and
-`tools/evaluate_dynamic_model_multiscale.py` paths remain as compatibility
-entry points for existing commands.
+| `scripts/run_train_gsno.sh` | Training command for CAVE or Harvard at 4x or 8x |
+| `scripts/run_eval_gsno.sh` | Cross-scale evaluation command for CAVE or Harvard |
 
 The paper's two main modules are named `LKI` and `GSIO` in `model/gsno.py`.
 The model class is `model.gsno.GSNO`, with `lki_layers` controlling the LKI
-depth. `GSFusion` and the former `adci_layers` argument remain available for
-older callers. Previously saved weights with `adci_*` and `gaussian_refine.*`
-keys are mapped to the new names when loaded; evaluation still uses
-`strict=True`.
+depth. The public model and parameter names follow the paper throughout the
+training and evaluation code.
 
 ## Checks
 

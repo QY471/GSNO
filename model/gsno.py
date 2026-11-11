@@ -9,7 +9,6 @@ from __future__ import annotations
 import math
 import os
 import sys
-from collections import OrderedDict
 from typing import Dict, List, Optional
 
 import torch
@@ -22,7 +21,6 @@ def _resolve_adaptive_gaussian_rasterizer():
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     extension_root = (
         os.environ.get("GSNO_ADAPTIVE_RASTER_ROOT")
-        or os.environ.get("GSFUSION_ADAPTIVE_RASTER_ROOT")  # Legacy override.
         or os.path.join(repo_root, "extensions", "adaptive3_rasterizer")
     )
     if extension_root not in sys.path:
@@ -83,34 +81,7 @@ class LKI(nn.Module):
         return weighted_v + self.gate(x)
 
 
-_LEGACY_MODULE_NAMES = {
-    "adci_hsi_layers": "lki_hsi_layers",
-    "adci_msi_layers": "lki_msi_layers",
-    "gaussian_refine": "gsio",
-}
-
-
-def _rename_legacy_state_key(key: str) -> str:
-    return ".".join(_LEGACY_MODULE_NAMES.get(part, part) for part in key.split("."))
-
-
-def remap_legacy_state_dict(state_dict):
-    """Accept checkpoints saved before the public LKI/GSIO module names."""
-    remapped = OrderedDict()
-    for key, value in state_dict.items():
-        new_key = _rename_legacy_state_key(key)
-        if new_key in remapped:
-            raise ValueError(f"Duplicate model parameter after renaming: {new_key}")
-        remapped[new_key] = value
-    if hasattr(state_dict, "_metadata"):
-        remapped._metadata = OrderedDict(
-            (_rename_legacy_state_key(key), value)
-            for key, value in state_dict._metadata.items()
-        )
-    return remapped
-
-
-class GaussianResidual(nn.Module):
+class _GSIOBase(nn.Module):
     """One local, density-normalized Gaussian residual on the HR feature grid."""
 
     def __init__(
@@ -243,7 +214,7 @@ class GaussianResidual(nn.Module):
         return out
 
 
-class FusionBackbone(nn.Module):
+class GSNOBackbone(nn.Module):
     """Two-stream feature fusion and Gaussian residual reconstruction."""
 
     def __init__(
@@ -271,7 +242,7 @@ class FusionBackbone(nn.Module):
             nn.GELU(),
             nn.Conv2d(dim, dim, 1),
         )
-        self.gsio = GaussianResidual(dim)
+        self.gsio = _GSIOBase(dim)
         self.fc1 = nn.Conv2d(dim, dim, 1)
         self.fc2 = nn.Conv2d(dim, num_bands, 1)
         # Preserve the RNG sequence used by the training initialization.
@@ -300,13 +271,6 @@ class FusionBackbone(nn.Module):
     def collect_gsio_stats(self) -> List[Dict[str, float]]:
         stats = self.gsio.last_stats
         return [] if stats is None else [{"layer": "gsio", **stats}]
-
-    collect_gs_stats = collect_gsio_stats  # Legacy diagnostics API.
-
-    def load_state_dict(self, state_dict, strict=True, assign=False):
-        return super().load_state_dict(
-            remap_legacy_state_dict(state_dict), strict=strict, assign=assign
-        )
 
     def forward(self, lr_hsi: torch.Tensor, hr_msi: torch.Tensor, sf=None):
         del sf
@@ -337,7 +301,7 @@ class FusionBackbone(nn.Module):
         return base + residual
 
 
-class GSIO(GaussianResidual):
+class GSIO(_GSIOBase):
     """Gaussian Spatial Integral Operator with learned kernel orientation."""
 
     def __init__(
@@ -490,7 +454,7 @@ class GSIO(GaussianResidual):
         return out
 
 
-class GSNO(FusionBackbone):
+class GSNO(GSNOBackbone):
     """Spatial-spectral fusion with elliptical Gaussian integration."""
 
     def __init__(
@@ -498,15 +462,10 @@ class GSNO(FusionBackbone):
         dim: int = 64,
         num_bands: int = 31,
         num_msi: int = 3,
-        lki_layers: Optional[int] = None,
-        adci_layers: Optional[int] = None,
+        lki_layers: int = 3,
         max_axis_ratio: float = 2.0,
         **kwargs: object,
     ) -> None:
-        if lki_layers is None:
-            lki_layers = 3 if adci_layers is None else adci_layers
-        elif adci_layers is not None and lki_layers != adci_layers:
-            raise ValueError("lki_layers and legacy adci_layers disagree")
         super().__init__(
             dim=dim,
             num_bands=num_bands,
@@ -544,9 +503,6 @@ def compute_loss(pred, gt, epoch, sam_warmup_epochs=5, sam_weight=0.1):
     return l1 + w * sam_loss(pred, gt)
 
 
-GSFusion = GSNO
-
 __all__ = [
-    "GSNO", "GSFusion", "LKI", "GSIO", "compute_loss", "sam_loss",
-    "remap_legacy_state_dict",
+    "GSNO", "GSNOBackbone", "LKI", "GSIO", "compute_loss", "sam_loss",
 ]
